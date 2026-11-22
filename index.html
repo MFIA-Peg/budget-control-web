@@ -57,9 +57,9 @@ main[data-view="orders"],main[data-view="order-analysis"]{max-width:1600px}main[
 <label>Purchase order<select id="budget-project"></select></label><div id="budget-content"></div></section>
 <section id="billing" data-workspace="actual-invoices planned-invoices actual-receipts" hidden><h2>Invoicing and receipts</h2><label>Customer<select id="billing-customer"></select></label><div id="billing-content"></div></section>
 <section id="cash" data-workspace="cash" hidden><h2>Payments and cash flow</h2><label>Project<select id="cash-project"></select></label><div id="cash-content"></div></section>
-<section id="cost-import" data-workspace="costs" hidden><h2>Import actual costs</h2><p id="cost-import-order" hidden></p><div class="actions">
+<section id="cost-import" data-workspace="costs" hidden><h2>Import actual costs</h2><p id="cost-import-order" hidden></p><div id="statement-mapping"></div><div class="actions">
 <button id="template" type="button">Download Excel template</button>
-<label>Cost workbook<input id="file" type="file" accept=".xlsx" disabled></label>
+<label>Cost workbook<input id="file" type="file" accept=".xlsx,.xls" disabled></label>
 <button id="upload" type="button" disabled>Send for review</button>
 </div></section>
 <section id="batch-review" data-workspace="costs" hidden><h2>Review batch</h2><form id="lookup"><label>Batch ID<input name="batch" required inputmode="numeric" pattern="[0-9]+"></label><button>Open batch</button></form><div id="review"></div></section>
@@ -717,6 +717,88 @@ byId('template').onclick=()=>run(byId('template'),async ()=>{
  const link=document.createElement('a');link.href=url;link.download='Actual_Cost_Import.xlsx';link.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
+function parseProjectStatement(source){
+ const template=document.createElement('template');
+ template.innerHTML=source;
+ const required=['date','account','voucher #','description','department','debit','credit'];
+ const title=[...template.content.querySelectorAll('span[id$="lblReportTitle"]')][0]?.textContent.trim()??'';
+ const groups=new Map();
+ let sourceRow=0;
+ for(const table of template.content.querySelectorAll('table')){
+  const rows=[...table.rows];
+  const headers=rows.find(row=>required.every(label=>[...row.cells].some(cell=>cell.textContent.trim().toLowerCase()===label)));
+  if(!headers)continue;
+  const names=[...headers.cells].map(cell=>cell.textContent.trim().toLowerCase());
+  const group=rows[rows.indexOf(headers)-1]?.cells[0]?.textContent.trim()||'Unclassified';
+  for(const row of rows.slice(rows.indexOf(headers)+1)){
+   if(row.parentElement.tagName==='TFOOT'||row.cells.length!==names.length)continue;
+   const cell=label=>row.cells[names.indexOf(label)].textContent.trim();
+   const date=cell('date'),reference=cell('voucher #');
+   if(!date||/^OB$/i.test(reference))continue;
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!reference)throw new Error('Invalid transaction date or voucher in '+group);
+   const cents=label=>{
+    const raw=cell(label).replace(/,/g,'')||'0';
+    if(!/^-?\d+(?:\.\d{1,2})?$/.test(raw))throw new Error('Invalid '+label+' on voucher '+reference);
+    return Math.round(Number(raw)*100);
+   };
+   const debit=cents('debit'),credit=cents('credit');
+   if(!debit&&!credit)continue;
+   const department=cell('department'),account=cell('account');
+   const key=JSON.stringify([group,department]);
+   if(!groups.has(key))groups.set(key,{group,department,rows:[],debit:0,credit:0});
+   const entry=groups.get(key);
+   entry.debit+=debit;entry.credit+=credit;
+   entry.rows.push({source_row:++sourceRow,transaction_date:date,reference,
+    subcategory:account,description:cell('description')||account,transaction_type:reference.split(':')[0],amount:((debit-credit)/100).toFixed(2)});
+  }
+ }
+ if(!sourceRow)throw new Error('No Proactive Project Statement transactions found.');
+ if(sourceRow>5000)throw new Error('Include up to 5000 transactions.');
+ return {title,groups:[...groups.values()]};
+}
+function reviewProjectStatement(statement,file,order){
+ const panel=byId('statement-mapping');
+ panel.replaceChildren();
+ show('h3','Map Project Statement to actual costs',panel);
+ if(statement.title)show('p',statement.title,panel);
+ const data=workspaceData;
+ const orders=show('select','',show('label','Purchase order',panel));
+ show('option','Select purchase order',orders).value='';
+ for(const item of data.orders.filter(item=>!item.closed_at))show('option',item.code,orders).value=item.code;
+ if(order){orders.value=order.code;orders.disabled=true;}
+ show('p','Select the cost category and department for each group. Debit less credit is the net cost. Skip non-cost groups.',panel);
+ const mapping=statement.groups.map(entry=>{
+  const section=show('article','',panel);
+  show('h4',entry.group+' · '+(entry.department||'No department'),section);
+  show('p',entry.rows.length+' transactions · Debit '+reportMoney.format(entry.debit/100)+' · Credit '+reportMoney.format(entry.credit/100),section);
+  const department=show('select','',show('label','Department',section));
+  show('option','Select department',department).value='';
+  for(const item of data.departments){
+   const option=show('option',item.name,department);option.value=item.id;
+   if(item.name.trim().toLowerCase()===entry.department.toLowerCase())department.value=item.id;
+  }
+  const category=show('select','',show('label','Cost category',section));
+  show('option','Select cost category',category).value='';
+  show('option','Skip this group',category).value='skip';
+  for(const item of data.categories)show('option',item.name,category).value=item.code;
+  return {entry,department,category};
+ });
+ const button=show('button','Send mapped rows for review',panel);button.type='button';
+ button.onclick=()=>run(button,async()=>{
+  if(!orders.value)throw new Error('Select the purchase order for this statement.');
+  const rows=[];
+  for(const {entry,department,category} of mapping){
+   if(category.value==='skip')continue;
+   if(!department.value||!category.value)throw new Error('Complete the mapping for '+entry.group+'.');
+   for(const row of entry.rows)rows.push({...row,order_code:orders.value,department_id:department.value,category_code:category.value});
+  }
+  if(!rows.length)throw new Error('Select at least one cost group.');
+  const id=await rpc('stage_costs',{p_source:file.name,p_rows:rows});
+  lookup.elements.batch.value=id;byId('file').value='';panel.replaceChildren();
+  status.textContent='Batch '+id+' saved for review.';
+  await openBatch(id);
+ });
+}
 async function parse(file) {
  if (!file || file.size>5*1024*1024) throw new Error('Select an Excel workbook up to 5 MB.');
  const book=new ExcelJS.Workbook();await book.xlsx.load(await file.arrayBuffer());
@@ -785,7 +867,14 @@ async function openBatch(id) {
 }
 byId('upload').onclick=()=>run(byId('upload'),async()=>{
  const order=actualCostOrder;
- const file=byId('file').files[0];const rows=await parse(file);
+ const file=byId('file').files[0];
+ byId('statement-mapping').replaceChildren();
+ if(file&&/\.xls$/i.test(file.name)){
+  if(file.size>5*1024*1024)throw new Error('Select a statement up to 5 MB.');
+  reviewProjectStatement(parseProjectStatement(await file.text()),file,order);
+  return;
+ }
+ const rows=await parse(file);
  if(order){
   const mismatch=rows.find(row=>row.order_code.toUpperCase()!==order.code.trim().toUpperCase());
   if(mismatch)throw new Error('Excel row '+mismatch.source_row+' does not belong to '+order.code+'.');
@@ -1141,7 +1230,7 @@ function renderCatalogOverview(panel,view){
     const addCosts=show('button','Add actual costs',controls);addCosts.type='button';
     addCosts.onclick=()=>{
      actualCostOrder=record;
-     byId('file').value='';lookup.reset();review.replaceChildren();
+     byId('file').value='';lookup.reset();review.replaceChildren();byId('statement-mapping').replaceChildren();
      selectWorkspace('costs');
      byId('cost-import').scrollIntoView({block:'start'});
     };
