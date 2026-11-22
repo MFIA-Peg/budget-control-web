@@ -43,8 +43,8 @@ main:is([data-view="departments"],[data-view="customers"]) .catalog-page-heading
 :is(.department-overview,.customer-overview) tbody tr:nth-child(even){background:#f8fafc}
 :is(.department-overview,.customer-overview) td:last-child button{margin:0;padding:6px 13px;min-width:65px}
 .customer-overview :is(th,td):first-child{text-align:start;min-width:240px;max-width:350px;overflow-wrap:anywhere}
-.customer-overview :is(th,td):is(:nth-child(n+2):nth-child(-n+4),:last-child){text-align:center}
-.customer-overview :is(th,td):nth-child(n+5):not(:last-child){text-align:right}
+.customer-overview :is(th,td):is(:nth-child(2),:last-child){text-align:center}
+.customer-overview :is(th,td):nth-child(n+3):not(:last-child){text-align:right}
 .customer-overview td:not(:first-child){white-space:nowrap}
 </style>
 <header><h1>Budget Controlling</h1><div class="finance-header"><span>Finance sign-in</span><button id="refresh-workspace" type="button" hidden>Refresh</button><button id="logout" type="button" hidden>Sign out</button></div></header>
@@ -1168,7 +1168,7 @@ function renderCatalogOverview(panel,view){
   return [first?.start_date??'—',first?.end_date??'—',amounts.length?reportMoney.format(amounts.reduce((sum,order)=>sum+Number(order.contract_value),0)):'—'];
  };
  const configs={
-  customers:()=>[d.customers,['Customer','Projects','Start date','End date','Order value'],row=>{const projects=d.projects.filter(project=>project.customer_id===row.id);return [row.name,projects.length,...orderSummary(ordersFor(projects.map(project=>project.id)))];}],
+  customers:()=>[d.customers,['Customer','Projects','Order value'],row=>{const projects=d.projects.filter(project=>project.customer_id===row.id);return [row.name,projects.length,orderSummary(ordersFor(projects.map(project=>project.id)))[2]];}],
   departments:()=>[d.departments,['Department','Other name','Code','Customers','Projects'],row=>[row.name,row.other_name??'',row.code??'',d.department_customers.filter(link=>link.department_id===row.id).length,d.project_departments.filter(link=>link.department_id===row.id).length]],
   projects:()=>[d.projects,['Project','Status','Orders','Start date','End date','Order value'],row=>{const orders=ordersFor([row.id]);return [row.name,row.status,orders.length,...orderSummary(orders)];}],
   orders:()=>[d.orders.filter(order=>!order.closed_at),['Code','Order number','Project'],row=>[row.code,row.order_number??'—',d.projects.find(project=>project.id===row.project_id)?.name??'']],
