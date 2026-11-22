@@ -46,9 +46,14 @@ main:is([data-view="departments"],[data-view="customers"]) .catalog-page-heading
 .customer-overview :is(th,td):is(:nth-child(2),:last-child){text-align:center}
 .customer-overview :is(th,td):nth-child(n+3):not(:last-child){text-align:right}
 .customer-overview td:not(:first-child){white-space:nowrap}
+main[data-view="project-plans"]{max-width:1480px}
+main[data-view="project-plans"]>section[data-workspace]:not([data-workspace~="project-plans"]){display:none}
+main[data-view="project-plans"] th,main[data-view="project-plans"] td{padding:9px;vertical-align:middle}
+main[data-view="project-plans"] td{font-variant-numeric:tabular-nums}
+main[data-view="project-plans"] [aria-pressed="false"]{background:#e7eff8;color:#19324b}
 </style>
 <header><h1>Budget Controlling</h1><div class="finance-header"><span>Finance sign-in</span><button id="refresh-workspace" type="button" hidden>Refresh</button><button id="logout" type="button" hidden>Sign out</button></div></header>
-<nav id="work-nav" aria-label="Workspaces" hidden><button type="button" data-view="dashboard" hidden>Dashboard</button><button type="button" data-view="customers" hidden>Customers</button><button type="button" data-view="departments" hidden>Departments</button><button type="button" data-view="projects" hidden>Projects</button><button type="button" data-view="orders" hidden>Open customer purchase orders</button><button type="button" data-view="closed-orders" hidden>Closed purchase order report</button><button type="button" data-view="budget" hidden>Budget</button><button type="button" data-view="planned-invoices" hidden>Planned invoices</button><button type="button" data-view="actual-invoices" hidden>Actual invoices</button><button type="button" data-view="planned-receipts" hidden>Expected collections</button><button type="button" data-view="actual-receipts" hidden>Actual collections</button><button type="button" data-view="cash" hidden>Cash flow</button><button type="button" data-view="costs" hidden>Actual costs</button><button type="button" data-view="members" hidden>System administration</button></nav>
+<nav id="work-nav" aria-label="Workspaces" hidden><button type="button" data-view="dashboard" hidden>Dashboard</button><button type="button" data-view="customers" hidden>Customers</button><button type="button" data-view="departments" hidden>Departments</button><button type="button" data-view="projects" hidden>Projects</button><button type="button" data-view="orders" hidden>Open customer purchase orders</button><button type="button" data-view="closed-orders" hidden>Closed purchase order report</button><button type="button" data-view="project-plans" hidden>Budget &amp; Planned Billing</button><button type="button" data-view="actual-invoices" hidden>Actual invoices</button><button type="button" data-view="planned-receipts" hidden>Expected collections</button><button type="button" data-view="actual-receipts" hidden>Actual collections</button><button type="button" data-view="cash" hidden>Cash flow</button><button type="button" data-view="costs" hidden>Actual costs</button><button type="button" data-view="members" hidden>System administration</button></nav>
 <main id="workspace">
 <section><form id="login" aria-label="Finance sign-in">
 <label>Email<input name="email" type="email" required></label>
@@ -68,7 +73,7 @@ main:is([data-view="departments"],[data-view="customers"]) .catalog-page-heading
 <p id="dashboard-empty" hidden>No open projects for the portfolio view.</p><div id="dashboard-results"></div></section>
 <section id="catalog" data-workspace="customers departments projects orders" hidden><div id="catalog-fields"></div></section>
 <section id="closed-orders" data-workspace="closed-orders" hidden><h2>Closed customer purchase orders</h2><div id="closed-orders-content"></div></section>
-<section id="tab-report" data-workspace="budget costs planned-invoices actual-invoices planned-receipts actual-receipts customers departments projects orders closed-orders members" hidden></section>
+<section id="tab-report" data-workspace="project-plans budget costs planned-invoices actual-invoices planned-receipts actual-receipts customers departments projects orders closed-orders members" hidden></section>
 <section id="order-analysis" data-workspace="order-analysis" hidden></section>
 <section id="budget" data-workspace="budget" hidden><h2>Project budget</h2>
 <label>Purchase order<select id="budget-project"></select></label><div id="budget-content"></div></section>
@@ -1673,12 +1678,19 @@ async function openOrderAnalysis(order,mode,from,to){
    const planned=billing.invoices.filter(invoice=>invoice.planned&&String(invoice.order_id)===String(order.id));
    if(planned.length){
     show('h3','Planned invoices',result);
-    reportTable(result,['Invoice','Invoice date','Expected collection','Amount','Actions'],planned.map(invoice=>{
+    renderPlannedInvoiceTable(result,planned,()=>openOrderAnalysis(order,mode,from,to));
+   }
+  }
+ }catch(error){result.textContent=error.message;}
+}
+
+function renderPlannedInvoiceTable(result,planned,refresh,orderCode=false){
+    reportTable(result,[...(orderCode?['Purchase order']:[]),'Invoice','Invoice date','Expected collection','Amount','Actions'],planned.map(invoice=>{
      const actions=document.createElement('div');
      actions.className='actions';
      const edit=show('button','Edit',actions);edit.type='button';
      const remove=show('button','Delete',actions);remove.type='button';
-     const args={p_order:order.id,p_invoice:invoice.id};
+     const args={p_order:invoice.order_id,p_invoice:invoice.id};
      edit.onclick=()=>{
       const dialog=show('dialog','',result);
       dialog.addEventListener('close',()=>dialog.remove(),{once:true});
@@ -1708,7 +1720,7 @@ async function openOrderAnalysis(order,mode,from,to){
         try{await rpc('manage_planned_invoice',{...args,...values,p_action:'edit'});}
         catch(error){feedback.textContent=error.message;return;}
         dialog.close();
-        if(result.isConnected)await openOrderAnalysis(order,mode,from,to);
+        if(result.isConnected)await refresh();
        });
       };
       dialog.showModal();
@@ -1717,18 +1729,97 @@ async function openOrderAnalysis(order,mode,from,to){
       if(!confirm('Delete planned invoice '+invoice.number+'?'))return;
       run(remove,async()=>{
        await rpc('manage_planned_invoice',{...args,p_action:'delete',p_number:null,p_date:null,p_days:null,p_amount:null});
-       if(result.isConnected)await openOrderAnalysis(order,mode,from,to);
+       if(result.isConnected)await refresh();
       });
      };
-     return [invoice.number,invoice.invoice_date,invoice.expected_receipt_date,reportMoney.format(invoice.amount),actions];
+     return [...(orderCode?[invoice.order_code]:[]),invoice.number,invoice.invoice_date,invoice.expected_receipt_date,reportMoney.format(invoice.amount),actions];
     }));
-   }
-  }
- }catch(error){result.textContent=error.message;}
 }
+const profitabilityPercent=new Intl.NumberFormat('en',{style:'percent',maximumFractionDigits:2});
+function projectProfitValues(cost,sales){
+ const profit=sales-cost;
+ return [cost,sales,profit].map(amount=>reportMoney.format(amount)).concat(
+  sales?profitabilityPercent.format(profit/sales):'—',
+  cost?profitabilityPercent.format(profit/cost):'—'
+ );
+}
+const projectProfitHeaders=['Approved costs','Planned billing','Expected profit / loss','Profit margin','Mark-up'];
+async function renderProjectPlans(panel,openedProject,activeTab){
+ panel.hidden=!workspaceData;
+ if(panel.hidden)return;
+ const data=workspaceData;
+ show('h2','Budget and planned billing',panel);
+ const content=show('div','Loading…',panel);
+ const projects=data.projects.filter(project=>data.orders.some(order=>order.project_id===project.id));
+ const billingByCustomer=new Map();
+ try{
+  const plans=await Promise.all(projects.map(async project=>{
+   if(!billingByCustomer.has(project.customer_id))billingByCustomer.set(project.customer_id,rpc('billing',{p_customer:project.customer_id}));
+   const [budget,billing]=await Promise.all([rpc('budget',{p_project:project.id}),billingByCustomer.get(project.customer_id)]);
+   const approved=new Set(budget.versions.filter(version=>version.approved_at).map(version=>version.revision));
+   const orders=data.orders.filter(order=>order.project_id===project.id);
+   const invoices=billing.invoices.filter(invoice=>invoice.planned&&orders.some(order=>order.id===invoice.order_id));
+   const costs=budget.lines.filter(line=>approved.has(line.revision));
+   const cost=Number(budget.totals?.final_budget??costs.reduce((sum,line)=>sum+Number(line.change_amount),0));
+   const sales=invoices.reduce((sum,invoice)=>sum+Number(invoice.amount),0);
+   return {project,orders,costs,invoices,cost,sales,hasBudget:budget.lines.length>0};
+  }));
+  if(!content.isConnected)return;
+  content.replaceChildren();
+  const saved=plans.filter(plan=>plan.hasBudget||plan.invoices.length);
+  if(!saved.length){show('p','No project budgets or planned invoices have been saved.',content);return;}
+  const detail=show('div','',content);
+  reportTable(content,['Project',...projectProfitHeaders,'Actions'],saved.map(plan=>{
+   const open=document.createElement('button');open.type='button';open.textContent='Open';
+   open.onclick=()=>showProjectPlan(detail,plan,panel);
+   return [plan.project.name,...projectProfitValues(plan.cost,plan.sales),open];
+  }));
+  content.append(detail);
+  const opened=saved.find(plan=>plan.project.id===openedProject);
+  if(opened)showProjectPlan(detail,opened,panel,activeTab);
+ }catch(error){content.textContent=error.message;}
+}
+function showProjectPlan(detail,plan,panel,active='budget'){
+ detail.replaceChildren();
+ show('h3',plan.project.name,detail);
+ const tabs=show('div','',detail);tabs.className='actions';
+ const body=show('div','',detail);
+ const selectTab=key=>{
+  for(const button of tabs.children)button.setAttribute('aria-pressed',String(button.dataset.tab===key));
+  body.replaceChildren();
+  if(key==='billing'){
+   if(!plan.invoices.length){show('p','No planned invoices.',body);return;}
+   renderPlannedInvoiceTable(body,plan.invoices,async()=>{
+    panel.replaceChildren();
+    await renderProjectPlans(panel,plan.project.id,'billing');
+   },true);
+   return;
+  }
+  if(plan.costs.length)reportTable(body,['Purchase order','Date','Department','Cost item','Version','Amount'],plan.costs.map(line=>[
+   plan.orders.find(order=>order.id===line.order_id)?.code??'—',line.budget_date,
+   workspaceData.departments.find(dept=>dept.id===line.department_id)?.name??line.department_id,
+   workspaceData.categories.find(category=>category.code===line.category_code)?.name??line.category_code,
+   line.revision===0?'Original':'Revision '+line.revision,reportMoney.format(line.change_amount)
+  ]));
+  else show('p','No approved budget costs.',body);
+  const links=show('div','',body);links.className='actions';
+  for(const order of plan.orders){
+   const button=show('button','Manage budget · '+order.code,links);button.type='button';
+   button.onclick=()=>openOrderAnalysis(order,'budget');
+  }
+ };
+ for(const [key,label] of [['budget','Budget details'],['billing','Planned billing details']]){
+  const tab=show('button',label,tabs);tab.type='button';tab.dataset.tab=key;tab.onclick=()=>selectTab(key);
+ }
+ selectTab(active);
+ const summary=show('div','',detail);summary.className='report-kpis';
+ projectProfitValues(plan.cost,plan.sales).forEach((value,index)=>show('p',projectProfitHeaders[index]+' · '+value,summary));
+}
+
 function renderWorkspaceReport(){
  const view=byId('workspace').dataset.view, mode=reportModes[view], panel=byId('tab-report');
  panel.replaceChildren();
+ if(view==='project-plans'){renderProjectPlans(panel);return;}
  if(!mode){renderCatalogOverview(panel,view);return;}
  panel.hidden=!workspaceData;
  if(panel.hidden)return;
