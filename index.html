@@ -60,7 +60,18 @@ main[data-view="project-actuals"]{max-width:1480px}
 main[data-view="project-actuals"]>section[data-workspace]:not([data-workspace~="project-actuals"]){display:none}
 main[data-view="project-actuals"] th,main[data-view="project-actuals"] td{padding:9px;vertical-align:middle}
 main[data-view="project-actuals"] [aria-pressed="false"]{background:#e7eff8;color:#19324b}
-.order-pies{margin-top:16px}
+.order-chart-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px;align-items:start}
+.order-chart-costs,.order-chart-layout .order-pies{min-width:0}
+.order-chart-costs canvas{height:auto}
+.order-chart-layout .order-pies{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:0}
+.order-chart-layout h3{font-size:15px;margin:0 0 6px}
+.order-chart-layout .dashboard-donut{width:76px;margin:6px auto}
+.order-chart-layout .dashboard-legend{margin:6px 0;font-size:12px}
+.order-chart-layout .order-pies article{padding:8px}
+.order-chart-layout .order-pies table{font-size:12px;margin:4px 0}
+.order-chart-layout .order-pies th,.order-chart-layout .order-pies td{padding:4px}
+.budget-order-context p{margin:0 0 8px}
+@media(max-width:760px){.order-chart-layout{grid-template-columns:minmax(0,1fr)}}
 .order-pies article{min-width:0;padding:14px;border:1px solid #dce5ef;border-radius:10px}
 .order-pies .dashboard-donut::after{display:none}
 </style>
@@ -642,6 +653,22 @@ function configureBudget(data){
  picker.onchange=()=>run(picker,()=>openBudget(data,picker.value));
  if(picker.value)openBudget(data,picker.value).catch(error=>{status.textContent=error.message;});
 }
+function renderBudgetOrderHeading(panel,order,data){
+ const back=show('button','Back to purchase order',panel);back.type='button';
+ back.onclick=()=>{
+  selectWorkspace(order.closed_at?'closed-orders':'orders');
+  catalogDialogs.orders?.(order);
+ };
+ const project=data.projects.find(item=>item.id===order.project_id);
+ const customer=data.customers.find(item=>item.id===(order.customer_id??project?.customer_id));
+ const linked=data.order_departments.filter(link=>link.order_id===order.id).map(link=>link.department_id);
+ const departmentIds=new Set([order.primary_department_id,...(order.secondary_department_ids??[]),...linked]);
+ const departments=data.departments.filter(item=>departmentIds.has(item.id)).map(item=>item.name);
+ show('h3','Purchase order '+(order.order_number||order.code),panel);
+ const context=show('div','',panel);context.className='report-kpis budget-order-context';
+ for(const [label,value] of [['Project',project?.name],['Customer',customer?.name],['Departments',departments.join(', ')]])
+  show('p',label+' · '+(value||'—'),context);
+}
 async function openBudget(data,orderId){
  const panel=byId('budget-content');
  panel.replaceChildren();
@@ -652,6 +679,7 @@ async function openBudget(data,orderId){
  if(!session||byId('budget-project').value!==orderId)return;
  const lines=budget.lines.filter(line=>String(line.order_id)===orderId);
  panel.replaceChildren();
+ renderBudgetOrderHeading(panel,selectedOrder,data);
  const approved=budget.versions.filter(v=>v.approved_at);
  const revisions=approved.filter(v=>v.revision>0).map(v=>v.revision);
  const next=approved.length ? approved.at(-1).revision+1 : 0;
@@ -1343,23 +1371,7 @@ function renderCatalogOverview(panel,view){
   const summary=['Total',...headers.slice(1).map(()=>''),...totals(matching)];
   if(view==='orders'||separateActions)summary.push('');
   reportTable(result,[...headers,...labels,...(view==='orders'?['Order status']:separateActions?['Actions']:[])],[summary,...rows]);
-  if(view==='orders'){
-   renderOrderComparison(chart,matching,d);
-   const pies=show('div','',chart);pies.className='dashboard-comparisons order-pies';
-   for(const [title,plannedMetric,actualMetric] of [
-    ['Collections · planned vs actual','planned_receipt','actual_receipt'],
-    ['Billing · planned vs actual','planned_invoice','actual_invoice']
-   ]){
-    const sum=metric=>matching.filter(row=>row.metric===metric).reduce((total,row)=>total+Number(row.amount),0);
-    const planned=sum(plannedMetric), actual=sum(actualMetric);
-    donut(pies,title,[['Planned',planned],['Actual',actual]]);
-    const card=pies.lastElementChild;
-    if(!planned&&!actual)show('p','No amounts in this period.',card);
-    reportTable(card,['Planned total','Actual total','Variance (actual − planned)'],[[
-     reportMoney.format(planned),reportMoney.format(actual),reportMoney.format(actual-planned)
-    ]]);
-   }
-  }
+  if(view==='orders')renderOrderOverviewCharts(chart,matching,d);
   else if(matching.length){
    const groupedMonths=new Map();
    for(const entry of matching){
@@ -1393,6 +1405,28 @@ function renderCatalogOverview(panel,view){
  if(dimension){from.onchange=to.onchange=()=>refresh();refresh();}
  update();
 }
+function renderOrderOverviewCharts(panel,rows,data){
+ const layout=show('div','',panel);layout.className='order-chart-layout';
+ const costs=show('div','',layout);costs.className='order-chart-costs';
+ renderOrderComparison(costs,rows,data);
+ renderOrderBillingCharts(layout,rows);
+}
+function renderOrderBillingCharts(chart,rows){
+ const pies=show('div','',chart);pies.className='dashboard-comparisons order-pies';
+ for(const [title,plannedMetric,actualMetric] of [
+  ['Collections · planned vs actual','planned_receipt','actual_receipt'],
+  ['Billing · planned vs actual','planned_invoice','actual_invoice']
+ ]){
+  const sum=metric=>rows.filter(row=>row.metric===metric).reduce((total,row)=>total+Number(row.amount),0);
+  const planned=sum(plannedMetric), actual=sum(actualMetric);
+  donut(pies,title,[['Planned',planned],['Actual',actual]]);
+  const card=pies.lastElementChild;
+  if(!planned&&!actual)show('p','No amounts in this period.',card);
+  reportTable(card,['Planned total','Actual total','Variance (actual − planned)'],[[
+   reportMoney.format(planned),reportMoney.format(actual),reportMoney.format(actual-planned)
+  ]]);
+ }
+}
 function renderOrderComparison(panel,rows,data){
  const groups=new Map();
  for(const row of rows){
@@ -1413,6 +1447,9 @@ function renderOrderComparison(panel,rows,data){
  })).sort((a,b)=>a.name.localeCompare(b.name));
  const series=[['budget','Planned cost'],['cost','Actual cost'],['variance','Variance (actual − planned)']];
  monthlyChart(panel,title,items,series,false,null,true);
+ const canvas=panel.querySelector('canvas');
+ canvas.style.width=Math.max(100,items.length*17)+'%';
+ canvas.style.minWidth=Math.min(720,Math.max(320,items.length*100))+'px';
  reportTable(panel,['Planned cost total','Actual cost total','Total variance (actual − planned)'],[
   series.map(([key])=>reportMoney.format(items.reduce((sum,item)=>sum+item[key],0)))
  ]);
@@ -1758,7 +1795,7 @@ async function openOrderAnalysis(order,mode,from,to){
    if(!from||!to||from>to)throw new Error('Select a valid reporting period.');
    const rows=await rpc('financial_rows',{p_from:from,p_to:to});
    result.replaceChildren();show('p',from+' – '+to,result);
-   renderOrderComparison(result,rows.filter(row=>String(row.order_id)===String(order.id)),data);
+   renderOrderOverviewCharts(result,rows.filter(row=>String(row.order_id)===String(order.id)),data);
    return;
   }
   const budget=await rpc('budget',{p_project:order.project_id});
