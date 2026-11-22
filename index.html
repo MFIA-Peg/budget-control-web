@@ -1,0 +1,1665 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget Controlling</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fb;color:#16283f;font:16px system-ui}header{background:#10273e;color:white;padding:24px max(24px,calc((100vw - 1100px)/2))}main{max-width:1150px;margin:auto;padding:24px}section,article{background:white;border:1px solid #dae3ee;border-radius:14px;padding:20px;margin-bottom:16px}h1,h2,h3{margin-top:0}form,.actions{display:flex;gap:12px;align-items:end;flex-wrap:wrap}label{display:grid;gap:5px}input,button{font:inherit;padding:9px;border:1px solid #a7b7cb;border-radius:7px}button{background:#114e78;color:white;cursor:pointer}button:disabled{opacity:.55}.comparison{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px}.record{background:#f4f7fc;padding:12px;border-radius:8px}dl{display:grid;grid-template-columns:1fr 1fr;gap:5px}dd{margin:0;overflow-wrap:anywhere}.warning{color:#894405}[hidden]{display:none!important}
+table{border-collapse:collapse;width:100%;margin:12px 0}th,td{padding:8px;text-align:left;border-bottom:1px solid #dae3ee}#budget-content{overflow-x:auto}select{font:inherit;padding:8px;border:1px solid #a7b7cb;border-radius:7px}
+.dashboard-scroll{overflow-x:auto}.dashboard-scroll canvas{display:block}.dashboard-legend{display:flex;flex-wrap:wrap;gap:8px 18px;padding:0;list-style:none}.dashboard-legend li{border-inline-start:5px solid;padding-inline-start:8px}.dashboard-comparisons{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px}.dashboard-donut{width:132px;aspect-ratio:1;border-radius:50%;margin:12px auto;position:relative}.dashboard-donut::after{content:'';position:absolute;inset:26%;background:white;border-radius:50%}#dashboard article{margin-block:12px}#dashboard details{overflow-x:auto}
+main[data-view="dashboard"] > section[data-workspace]:not([data-workspace~="dashboard"]),main[data-view="dashboard"] #catalog-fields > article:not([data-workspace~="dashboard"]){display:none}
+main[data-view="customers"] > section[data-workspace]:not([data-workspace~="customers"]),main[data-view="customers"] #catalog-fields > article:not([data-workspace~="customers"]){display:none}
+main[data-view="departments"] > section[data-workspace]:not([data-workspace~="departments"]),main[data-view="departments"] #catalog-fields > article:not([data-workspace~="departments"]){display:none}
+main[data-view="projects"] > section[data-workspace]:not([data-workspace~="projects"]),main[data-view="projects"] #catalog-fields > article:not([data-workspace~="projects"]){display:none}
+main[data-view="orders"] > section[data-workspace]:not([data-workspace~="orders"]),main[data-view="orders"] #catalog-fields > article:not([data-workspace~="orders"]){display:none}
+main[data-view="budget"] > section[data-workspace]:not([data-workspace~="budget"]),main[data-view="budget"] #catalog-fields > article:not([data-workspace~="budget"]){display:none}
+main[data-view="billing"] > section[data-workspace]:not([data-workspace~="billing"]),main[data-view="billing"] #catalog-fields > article:not([data-workspace~="billing"]){display:none}
+main[data-view="cash"] > section[data-workspace]:not([data-workspace~="cash"]),main[data-view="cash"] #catalog-fields > article:not([data-workspace~="cash"]){display:none}
+main[data-view="costs"] > section[data-workspace]:not([data-workspace~="costs"]),main[data-view="costs"] #catalog-fields > article:not([data-workspace~="costs"]){display:none}
+main[data-view="members"] > section[data-workspace]:not([data-workspace~="members"]),main[data-view="members"] #catalog-fields > article:not([data-workspace~="members"]){display:none}
+[hidden]{display:none!important}#work-nav{display:flex;gap:.4rem;flex-wrap:wrap;max-width:1150px;margin:auto;padding:12px 24px}#work-nav button{background:white;color:#1e3a56;border:1px solid #cbd5e1}#work-nav button[aria-current="page"]{background:#1d4ed8;color:white}#dashboard-empty{padding:16px;background:#eef4fc;border-radius:8px}
+main[data-view="closed-orders"] > section[data-workspace]:not([data-workspace~="closed-orders"]){display:none}#closed-orders-content{overflow-x:auto}
+main[data-view="planned-invoices"] > section[data-workspace]:not([data-workspace~="planned-invoices"]){display:none}
+main[data-view="actual-invoices"] > section[data-workspace]:not([data-workspace~="actual-invoices"]){display:none}
+main[data-view="planned-receipts"] > section[data-workspace]:not([data-workspace~="planned-receipts"]){display:none}
+main[data-view="actual-receipts"] > section[data-workspace]:not([data-workspace~="actual-receipts"]){display:none}
+.report-filters,.report-kpis{display:flex;flex-wrap:wrap;gap:12px}.report-kpis p{background:#eef4fc;padding:12px;border-radius:6px}.report-table{overflow:auto}main[data-view="actual-receipts"] [data-billing-form="invoice"],main[data-view="planned-invoices"] [data-billing-form="receipt"],main[data-view="actual-invoices"] [data-billing-form="receipt"]{display:none}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}header h1{margin:0}.finance-header{margin-left:auto;display:flex;align-items:center;gap:12px}main>section:has(> #login[hidden]){display:none}
+dialog{width:min(640px,calc(100vw - 32px));max-height:85vh;overflow:auto;border:1px solid #cbd5e1;border-radius:12px;padding:24px}dialog::backdrop{background:#10273e99}input.select-search{display:block;width:100%;margin:4px 0}select option[hidden]{display:none}
+article.catalog-dialog-host{padding:0;border:0;margin:0;background:none}.catalog-page-heading,.catalog-row-name{display:flex;align-items:center;gap:12px}.catalog-page-heading{justify-content:space-between;flex-wrap:wrap}#catalog:has(article.catalog-dialog-host):not(:has(dialog[open])){padding:0;border:0;background:none;margin:0}dialog details label{display:block}dialog details input[type=checkbox]{width:auto}
+.report-filters,#dashboard-form{display:flex;align-items:end;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding-bottom:6px}.report-filters label,#dashboard-form label{flex:0 0 132px;min-width:0;margin:0}.report-filters input,.report-filters select,#dashboard-form input,#dashboard-form select{width:100%;min-width:0;margin:3px 0;padding:5px;font-size:13px}.report-filters input.select-search,#dashboard-form input.select-search{font-size:12px}
+main[data-view="orders"],main[data-view="order-analysis"]{max-width:1600px}main[data-view="order-analysis"]>section[data-workspace]:not([data-workspace="order-analysis"]){display:none}.order-links{display:flex;gap:5px;flex-wrap:wrap}.order-links button,main[data-view="orders"] td button{padding:5px 8px;font-size:12px}main[data-view="orders"] table{font-size:13px}main[data-view="orders"] td,main[data-view="orders"] th{padding:6px}output{display:block}.picker-native{position:absolute!important;width:1px!important;height:1px!important;opacity:0;pointer-events:none}.searchable-picker{position:relative;min-width:0}.searchable-picker input{width:100%;padding-right:20px}.picker-options{position:absolute;z-index:5;top:100%;left:0;min-width:100%;width:max-content;max-width:260px;max-height:200px;overflow:auto;background:white;border:1px solid #cbd5e1;box-shadow:0 4px 12px #10273e26}.picker-options button{display:block;width:100%;color:#16283f;background:white;text-align:left;margin:0;border-radius:0}.picker-options button:hover,.picker-options button:focus{background:#e4efff}.report-filters:focus-within,#dashboard-form:focus-within{overflow:visible}
+.catalog-row-name:has(.order-row-actions){display:block}.order-row-actions{margin-top:6px;flex-wrap:nowrap;white-space:nowrap}.plan-row{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.budget-plan-actions{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;background:white;padding:8px 0}.budget-plan-actions p{margin:0}.plan-row,.plan-column-headings{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr)) auto;gap:8px;align-items:center}.plan-row input,.plan-row select{width:100%;min-width:0}.plan-column-headings{font-weight:600}.plan-row button{justify-self:start}
+.dashboard-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0}.dashboard-kpis>div{background:#eef4fc;padding:10px;border-radius:6px;overflow-wrap:anywhere}.dashboard-kpis span,.dashboard-kpis strong{display:block}.dashboard-kpis span{font-size:.8rem}
+</style>
+<header><h1>Budget Controlling</h1><div class="finance-header"><span>Finance sign-in</span><button id="refresh-workspace" type="button" hidden>Refresh</button><button id="logout" type="button" hidden>Sign out</button></div></header>
+<nav id="work-nav" aria-label="Workspaces" hidden><button type="button" data-view="dashboard" hidden>Dashboard</button><button type="button" data-view="customers" hidden>Customers</button><button type="button" data-view="departments" hidden>Departments</button><button type="button" data-view="projects" hidden>Projects</button><button type="button" data-view="orders" hidden>Open customer purchase orders</button><button type="button" data-view="closed-orders" hidden>Closed purchase order report</button><button type="button" data-view="budget" hidden>Budget</button><button type="button" data-view="planned-invoices" hidden>Planned invoices</button><button type="button" data-view="actual-invoices" hidden>Actual invoices</button><button type="button" data-view="planned-receipts" hidden>Expected collections</button><button type="button" data-view="actual-receipts" hidden>Actual collections</button><button type="button" data-view="cash" hidden>Cash flow</button><button type="button" data-view="costs" hidden>Actual costs</button><button type="button" data-view="members" hidden>System administration</button></nav>
+<main id="workspace">
+<section><form id="login" aria-label="Finance sign-in">
+<label>Email<input name="email" type="email" required></label>
+<label>Password<input name="password" type="password" required></label><button>Sign in</button>
+</form></section>
+<section id="members" data-workspace="members" hidden><h2>User administration</h2>
+<form id="member-form">
+<label>Email of a verified Supabase account<input name="email" type="email" required></label>
+<label>Display name<input name="display_name" required></label>
+<label><input name="active" type="checkbox" checked> Active</label>
+<label><input name="finance" type="checkbox"> Finance administrator</label>
+<label><input name="system" type="checkbox"> System administrator</label>
+<button>Save</button><button id="member-reset" type="button">New</button>
+</form><ul id="member-list"></ul></section>
+<section id="dashboard" data-workspace="dashboard" hidden><h2>Financial dashboard</h2>
+<form id="dashboard-form" class="actions"><label>Customer<select name="customer"></select></label><label>Department<select name="department"></select></label><label>Project<select name="project"></select></label><label>Purchase order<select name="order"></select></label><label>From<input name="from" type="date" required></label><label>To<input name="to" type="date" required></label><button type="submit">Apply filters</button></form>
+<p id="dashboard-empty" hidden>No open projects for the portfolio view.</p><div id="dashboard-results"></div></section>
+<section id="catalog" data-workspace="customers departments projects orders" hidden><div id="catalog-fields"></div></section>
+<section id="closed-orders" data-workspace="closed-orders" hidden><h2>Closed customer purchase orders</h2><div id="closed-orders-content"></div></section>
+<section id="tab-report" data-workspace="budget costs planned-invoices actual-invoices planned-receipts actual-receipts customers departments projects orders closed-orders members" hidden></section>
+<section id="order-analysis" data-workspace="order-analysis" hidden></section>
+<section id="budget" data-workspace="budget" hidden><h2>Project budget</h2>
+<label>Purchase order<select id="budget-project"></select></label><div id="budget-content"></div></section>
+<section id="billing" data-workspace="actual-invoices planned-invoices actual-receipts" hidden><h2>Invoicing and receipts</h2><label>Customer<select id="billing-customer"></select></label><div id="billing-content"></div></section>
+<section id="cash" data-workspace="cash" hidden><h2>Payments and cash flow</h2><label>Project<select id="cash-project"></select></label><div id="cash-content"></div></section>
+<section id="cost-import" data-workspace="costs" hidden><h2>Import actual costs</h2><p id="cost-import-order" hidden></p><div class="actions">
+<button id="template" type="button">Download Excel template</button>
+<label>Cost workbook<input id="file" type="file" accept=".xlsx" disabled></label>
+<button id="upload" type="button" disabled>Send for review</button>
+</div></section>
+<section id="batch-review" data-workspace="costs" hidden><h2>Review batch</h2><form id="lookup"><label>Batch ID<input name="batch" required inputmode="numeric" pattern="[0-9]+"></label><button>Open batch</button></form><div id="review"></div></section>
+<p id="status" role="status" aria-live="polite"></p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script>
+'use strict';
+const columns = [
+ ['order_code','Purchase Order Code'],['department_id','Execution Department ID'],
+ ['category_code','Cost Category Code'],['transaction_date','Transaction date'],
+ ['subcategory','Subcategory'],['transaction_type','Transaction Type'],
+ ['reference','Transaction reference'],['description','Description'],['amount','Amount']
+];
+const byId = id => document.getElementById(id);
+const status = byId('status');
+const login = byId('login');
+const lookup = byId('lookup');
+const review = byId('review');
+let session = null;
+let busy = false;
+function show(tag, content, parent) {
+ const node = document.createElement(tag);
+ node.textContent = content;
+ parent.append(node);
+ return node;
+}
+async function request(config,path,data) {
+ const headers = {'apikey':config.key,'Content-Type':'application/json'};
+ if (config.token) headers.Authorization = 'Bearer '+config.token;
+ const response = await fetch(config.url+path,{method:'POST',headers,body:JSON.stringify(data)});
+ const body = await response.text();
+ let result = null;
+ if (body.trim()) {
+  try { result = JSON.parse(body); }
+  catch (error) {
+   if (response.ok) throw error;
+  }
+ }
+ if (!response.ok) throw new Error(result?.message || result?.msg || 'Request failed ('+response.status+').');
+ return result;
+}
+async function run(button,operation) {
+ if (busy) return;
+ busy=true;
+ button.disabled=true;
+ status.textContent='';
+ try { await operation(); } catch(error) { status.textContent=error.message; }
+ finally { busy=false; button.disabled=false; }
+}
+const authConfig={url:"https://intacxurcibujhozrxoq.supabase.co",key:"sb_publishable_UQW6bMoj2TKdphp7bU9ldw_QzULlU4D"};
+const sessionKey='budget-v2-session';
+let refreshPending;
+function saveSession(result){
+ session={...authConfig,token:result.access_token,refresh:result.refresh_token,expires:Date.now()+result.expires_in*1000};
+ sessionStorage.setItem(sessionKey,JSON.stringify({token:session.token,refresh:session.refresh,expires:session.expires}));
+}
+async function refreshSession(){
+ if(!session?.refresh)throw new Error('Sign in again to continue.');
+ if(!refreshPending){
+  const previous=session;
+  refreshPending=request(authConfig,'/auth/v1/token?grant_type=refresh_token',{refresh_token:previous.refresh})
+   .then(result=>{if(session===previous)saveSession(result);}).finally(()=>{refreshPending=null;});
+ }
+ return refreshPending;
+}
+async function openSession(){
+ const access=await rpc('access',{});
+ if(!access.finance_admin&&!access.system_admin)throw new Error('This account has no active Budget Controlling role.');
+ canManageBudget=access.system_admin;
+ configureNavigation(access);
+ login.hidden=true;
+ byId('logout').hidden=false;
+ byId('refresh-workspace').hidden=false;
+ status.textContent='Signed in.';
+ if(access.system_admin)await openMembers();
+ if(access.finance_admin){
+  byId('cost-import').hidden=false; byId('batch-review').hidden=false;
+  byId('file').disabled=false; byId('upload').disabled=false;
+  await openCatalog();
+ }
+}
+login.addEventListener('submit',event=>{
+ event.preventDefault();
+ run(event.submitter,async()=>{
+  const form=new FormData(login);
+  try{
+   saveSession(await request(authConfig,'/auth/v1/token?grant_type=password',{email:form.get('email').trim(),password:form.get('password')}));
+   await openSession();
+  }catch(error){
+   if(!login.hidden){session=null;sessionStorage.removeItem(sessionKey);}
+   throw error;
+  }finally{login.elements.password.value='';}
+ });
+});
+byId('logout').onclick=()=>{
+ if (busy) return;
+ sessionStorage.removeItem(sessionKey);
+ byId('refresh-workspace').hidden=true;
+ byId('work-nav').hidden=true;
+ delete byId('workspace').dataset.view;
+ byId('order-analysis').hidden=true;byId('order-analysis').replaceChildren();
+ workspaceData=null; workspaceMembers=[]; byId('tab-report').replaceChildren(); byId('tab-report').hidden=true;
+ session=null; byId('dashboard').hidden=true; byId('dashboard-results').replaceChildren(); login.hidden=false; byId('logout').hidden=true;
+ byId('file').value=''; byId('file').disabled=true; byId('upload').disabled=true;
+ byId('billing').hidden=true; byId('billing-content').replaceChildren();
+ byId('cash').hidden=true; byId('cash-content').replaceChildren();
+ byId('budget').hidden=true; byId('budget-content').replaceChildren();
+ byId('closed-orders').hidden=true; byId('closed-orders-content').replaceChildren();
+ byId('catalog').hidden=true; byId('catalog-fields').replaceChildren();
+ byId('members').hidden=true; byId('member-list').replaceChildren(); resetMemberForm();
+ actualCostOrder=null;
+ byId('cost-import').hidden=true; byId('batch-review').hidden=true;
+ lookup.reset(); review.replaceChildren(); status.textContent='Signed out of this screen.';
+};
+const rpc=async(name,body)=>{
+ if (!session) throw new Error('Sign in first.');
+ if(session.expires<=Date.now()+30000)await refreshSession();
+ if(!session)throw new Error('Sign in first.');
+ return request(session,'/rest/v1/rpc/budget_v2_'+name,body);
+};
+const memberForm=byId('member-form');
+function resetMemberForm(){
+ memberForm.reset();
+ for(const name of ['email','active','system'])memberForm.elements[name].disabled=false;
+}
+byId('member-reset').onclick=resetMemberForm;
+async function openMembers(){
+ const users=await rpc('members',{});
+ workspaceMembers=users;
+ renderWorkspaceReport();
+ const list=byId('member-list');
+ list.replaceChildren();
+ for(const user of users){
+  const roles=[user.finance_admin?'Finance administrator':'',user.system_admin?'System administrator':''].filter(Boolean);
+  const item=show('li',[user.display_name,user.email,user.active?'Active':'Suspended',...roles].join(' · ')+' ',list);
+  const edit=show('button','Edit',item);
+  edit.onclick=()=>{
+   resetMemberForm();
+   const f=memberForm.elements;
+   f.email.value=user.email;
+   f.email.disabled=true;
+   f.display_name.value=user.display_name;
+   f.active.checked=user.active;
+   f.finance.checked=user.finance_admin;
+   f.system.checked=user.system_admin;
+   f.active.disabled=user.self;
+   f.system.disabled=user.self;
+  };
+ }
+ byId('members').hidden=false;
+}
+memberForm.onsubmit=event=>{
+ event.preventDefault();
+ run(event.submitter,async()=>{
+  const f=memberForm.elements;
+  await rpc('save_member',{p_email:f.email.value,p_name:f.display_name.value,p_active:f.active.checked,p_finance:f.finance.checked,p_system:f.system.checked});
+  resetMemberForm();
+  await openMembers();
+  status.textContent='User saved.';
+ });
+};
+const nav=byId('work-nav');
+let currentOrderAnalysis=null, canManageBudget=false;
+let actualCostOrder=null;
+function selectWorkspace(view){
+ if(view!=='costs')actualCostOrder=null;
+ if(view==='costs'){
+  const label=byId('cost-import-order');
+  label.hidden=!actualCostOrder;
+  label.textContent=actualCostOrder?'Purchase order: '+actualCostOrder.code:'';
+ }
+ if(view!=='order-analysis')currentOrderAnalysis=null;
+ byId('workspace').dataset.view=view;
+ renderWorkspaceReport();
+ for(const button of nav.querySelectorAll('button')){
+  if(button.dataset.view===view)button.setAttribute('aria-current','page');
+  else button.removeAttribute('aria-current');
+ }
+}
+function configureNavigation(access){
+ for(const button of nav.querySelectorAll('button')){
+  button.hidden=button.dataset.view==='members'?!access.system_admin:!access.finance_admin;
+  button.onclick=()=>{actualCostOrder=null;selectWorkspace(button.dataset.view);};
+ }
+ selectWorkspace(access.finance_admin?'dashboard':'members');
+ nav.hidden=false;
+}
+function orderStatusButton(parent,order,closed){
+ const button=show('button',closed?'Close order':'Reopen order',parent);
+ button.type='button';
+ button.onclick=()=>{
+  if(!window.confirm((closed?'Close ':'Reopen ')+order.code+'?'))return;
+  run(button,async()=>{
+   await rpc('set_order_closed',{p_order:order.id,p_closed:closed});
+   await openCatalog();
+   status.textContent=closed?'Moved to the closed purchase order report.':'Moved to open purchase orders.';
+  });
+ };
+}
+function renderClosedOrders(data){
+ const container=byId('closed-orders-content');
+ container.replaceChildren();
+ byId('closed-orders').hidden=false;
+ const orders=data.orders.filter(order=>order.closed_at).sort((a,b)=>b.closed_at.localeCompare(a.closed_at));
+ if(!orders.length){show('p','No closed customer purchase orders.',container);return;}
+ const table=show('table','',container),header=table.createTHead().insertRow();
+ for(const label of ['Purchase order','Project','Customer','Closed on','Action'])show('th',label,header);
+ const body=table.createTBody();
+ for(const order of orders){
+  const project=data.projects.find(project=>project.id===order.project_id);
+  const customer=data.customers.find(customer=>customer.id===project?.customer_id);
+  const closed=new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeZone:'Asia/Riyadh'}).format(new Date(order.closed_at));
+  const row=body.insertRow();
+  for(const value of [order.code,project?.name??'',customer?.name??'',closed])show('td',value,row);
+  orderStatusButton(show('td','',row),order,false);
+ }
+}
+const catalogDialogs={};
+async function openCatalog() {
+ const [data,alerts]=await Promise.all([rpc('catalog',{}),rpc('order_alerts',{})]);
+ data.orderAlerts=alerts;
+ workspaceData=data;
+ const target=byId('catalog-fields');
+ target.replaceChildren();
+ byId('catalog').hidden=false;
+ configureBudget(data);
+ configureBilling(data);
+ configureCash(data);
+ renderClosedOrders(data);
+ await configureDashboard(data);
+ const projectStatuses={planned:'Planned',active:'Active',on_hold:'On hold',completed:'Completed',cancelled:'Cancelled'};
+ const groups=[
+  ['department','Departments','departments',[['name','Name']]],
+  ['customer','Customers','customers',[['name','Name'],['phone','Contact number'],['approved_email','Approved email'],['relationship_started_on','Relationship start date']]],
+  ['project','Projects','projects',[['name','Name'],['department_id','Main department','departments'],['customer_id','Customer','customers'],['status','Status']]],
+  ['order','Open customer purchase orders','orders',[['order_number','Purchase order number'],['code','Purchase order code'],['project_id','Project','projects'],['department_id','Primary execution department','departments'],['start_date','Start date'],['end_date','End date'],['contract_value','Value excluding VAT (SAR)']]],
+ ];
+ for(const [kind,title,collection,fields] of groups){
+  const area=show('article','',target);
+  if(collection)area.className='catalog-dialog-host';else show('h3',title,area);
+  area.dataset.workspace={department:'departments',customer:'customers',department_customer:'customers departments',project:'projects',project_department:'projects',order:'orders',order_department:'orders'}[kind];
+  const dialog=show('dialog','',area);
+  show('h3',title,dialog);
+  const close=show('button','Close',dialog);close.type='button';close.onclick=()=>dialog.close();
+  const form=show('form','',dialog);
+  const orderActions=show('div','',dialog);
+  const attachments=show('div','',dialog);
+  const inputs={};
+  for(const [key,label,source] of fields){
+   const wrapper=show('label',label,form);
+   const dateField=key==='start_date'||key==='end_date';
+   const input=show(source||key==='status'?'select':'input','',wrapper);
+   if(dateField||key==='relationship_started_on')input.type='date';
+   if(key==='phone')input.type='tel';
+   if(key==='contract_value'){input.type='number';input.min='0';input.step='0.01';}
+   if(key==='approved_email')input.type='email';
+   if(key==='status')for(const [value,name] of Object.entries(projectStatuses))show('option',name,input).value=value;
+   input.required=(!dateField||kind==='order')&&!['phone','approved_email','relationship_started_on'].includes(key);inputs[key]=input;
+   if(source){
+    const placeholder=show('option','Select '+label.toLowerCase(),input);placeholder.value='';
+    for(const row of data[source]){
+     if(kind==='order_department'&&source==='orders'&&row.closed_at)continue;
+     const option=show('option',row.name??row.code,input);option.value=row.id;
+    }
+   }
+  }
+  const customer=kind==='order'?show('output','',show('label','Customer',form)):null;
+  if(customer)inputs.project_id.parentElement.after(customer.parentElement);
+  function updateCustomer(){
+   if(!customer)return;
+   const project=data.projects.find(item=>String(item.id)===inputs.project_id.value);
+   customer.textContent=data.customers.find(item=>item.id===project?.customer_id)?.name??'—';
+  }
+  if(customer)inputs.project_id.addEventListener('change',updateCustomer);
+  const save=show('button','Save',form);
+  const editOrder=kind==='order'?show('button','Edit',form):null;
+  if(editOrder)editOrder.type='button';
+  let editing=null;
+  function reset(){
+   editing=null;form.reset();
+   for(const input of Object.values(inputs)){input.disabled=false;input.parentElement.hidden=false;}
+  }
+  const selectedDepartments=new Set();
+  const departmentPicker=['customer','order'].includes(kind)?customerDepartmentPicker(form,data.departments,selectedDepartments,kind==='order'?'Secondary execution departments':'Departments'):null;
+  const saveFeedback=show('p','',dialog);saveFeedback.setAttribute('role','alert');
+  if(collection){
+   catalogDialogs[collection]=row=>{
+    reset();attachments.replaceChildren();orderActions.replaceChildren();saveFeedback.textContent='';
+    if(kind==='order'){
+     const picker=inputs.project_id;
+     for(const option of [...picker.options].slice(1))option.remove();
+     for(const project of data.projects.filter(project=>['planned','active','on_hold'].includes(project.status)||project.id===row?.project_id))
+      show('option',project.name,picker).value=project.id;
+    }
+    if(row){
+     editing=row.id;
+     for(const [key,input] of Object.entries(inputs))input.value=row[key]??'';
+     for(const key of ['project_id','department_id','customer_id'])if(inputs[key])inputs[key].disabled=true;
+     if(kind==='order'){
+      inputs.department_id.disabled=false;
+      inputs.department_id.value=row.primary_department_id??data.order_departments.find(link=>link.order_id===row.id)?.department_id??'';
+     }
+    }
+    if(departmentPicker){
+     selectedDepartments.clear();
+     if(row&&kind==='customer')for(const link of data.department_customers)if(link.customer_id===row.id)selectedDepartments.add(link.department_id);
+     if(row&&kind==='order')for(const department of row.secondary_department_ids??[])selectedDepartments.add(department);
+     departmentPicker();
+    }
+    if(editOrder){
+     const editable=[...Object.entries(inputs).filter(([key])=>!row||key!=='project_id').map(([,input])=>input),...form.querySelectorAll('details input,details button')];
+     const setEditing=enabled=>{
+      editable.forEach(input=>{input.disabled=!enabled;});
+      save.hidden=!enabled;editOrder.hidden=enabled;
+     };
+     setEditing(!row);
+     editOrder.onclick=()=>setEditing(true);
+    }
+    updateCustomer();
+    dialog.showModal();
+    if(row)loadAttachments(attachments,kind,row.id).catch(error=>{attachments.textContent=error.message;});
+    if(row&&kind==='order'){
+     orderStatusButton(orderActions,row,true);
+     const budgetLink=show('button','Open budget',orderActions);budgetLink.type='button';
+     budgetLink.onclick=()=>{
+      dialog.close();
+      selectWorkspace('budget');
+      const picker=byId('budget-project');
+      picker.value=row.id;
+      picker.dispatchEvent(new Event('change'));
+     };
+    }
+   };
+  }
+  if(!collection){
+   const open=show('button','Open',area);open.type='button';
+   open.onclick=()=>{reset();dialog.showModal();};
+  }
+  form.onsubmit=event=>{
+   event.preventDefault();
+   if(editOrder&&save.hidden)return;
+   run(save,async()=>{
+    const record=Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.value.trim()||null]));
+    if(editing!=null)record.id=editing;
+    if(kind==='order_department')record.project_id=data.orders.find(row=>String(row.id)===record.order_id)?.project_id;
+     if(departmentPicker)record[kind==='order'?'secondary_department_ids':'department_ids']=[...selectedDepartments];
+    try{await rpc('save_catalog',{p_kind:kind,p_data:record});}
+    catch(error){saveFeedback.textContent=error.message;return;}
+    dialog.close();
+    await openCatalog();
+    status.textContent='Record saved.';
+   });
+  };
+ }
+ renderWorkspaceReport();
+}
+
+async function loadAttachments(panel,kind,id){
+ panel.replaceChildren();
+ show('h4','Attachments',panel);
+ const file=show('input','',panel);file.type='file';file.setAttribute('aria-label','Attachment');
+ const upload=show('button','Add attachment',panel);upload.type='button';
+ const feedback=show('p','',panel);feedback.setAttribute('role','status');
+ const args={p_kind:kind,p_entity:id};
+ upload.onclick=async()=>{
+  const selected=file.files[0];
+  if(!selected||selected.size<1||selected.size>1048576){feedback.textContent='Select a file up to 1 MiB.';return;}
+  upload.disabled=true;
+  try{
+   const bytes=new Uint8Array(await selected.arrayBuffer());
+   let binary='';
+   for(let offset=0;offset<bytes.length;offset+=8192)binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
+   await rpc('catalog_attachment',{...args,p_action:'add',p_name:selected.name,p_base64:btoa(binary)});
+   await loadAttachments(panel,kind,id);
+  }catch(error){feedback.textContent=error.message;upload.disabled=false;}
+ };
+ const list=show('ul','',panel);
+ const items=await rpc('catalog_attachment',{...args,p_action:'list'});
+ for(const item of items){
+  const button=show('button',item.filename,show('li','',list));button.type='button';
+  button.onclick=async()=>{
+   try{
+    const payload=await rpc('catalog_attachment',{...args,p_action:'download',p_id:item.id});
+    if(!payload)throw new Error('Attachment not found.');
+    const bytes=Uint8Array.from(atob(payload.base64),character=>character.charCodeAt(0));
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));
+    const link=document.createElement('a');link.href=url;link.download=payload.filename;link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+   }catch(error){feedback.textContent=error.message;}
+  };
+ }
+}
+function configureCash(data){
+ const picker=byId('cash-project'),previous=picker.value;
+ picker.replaceChildren();
+ show('option','Select project',picker).value='';
+ for(const p of data.projects)show('option',p.name,picker).value=p.id;
+ if(data.projects.some(p=>String(p.id)===previous))picker.value=previous;
+ byId('cash').hidden=false;
+ byId('cash-content').replaceChildren();
+ picker.onchange=()=>run(picker,()=>openCash(data,picker.value));
+ if(picker.value)openCash(data,picker.value).catch(error=>{status.textContent=error.message;});
+}
+async function openCash(data,id){
+ const panel=byId('cash-content');panel.replaceChildren();
+ if(!id)return;
+ const result=await rpc('cash',{p_project:id});
+ if(!session||byId('cash-project').value!==id)return;
+ panel.replaceChildren();
+ await renderCashCurves(panel,id,null,false);
+ if(!session||byId('cash-project').value!==id)return;
+ const sar=new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR'});
+ const name=(rows,id,key)=>rows.find(row=>row.id===id)?.[key]??id;
+ for(const [title,headers,rows] of [
+  ['Monthly cash flow',['Month','Collected','Paid','Net cash'],result.months.map(m=>[m.month.slice(0,7),sar.format(m.collected),sar.format(m.paid),sar.format(m.net_cash)])],
+  ['Payments',['Date','Purchase order','Execution department','Reference','Amount'],result.payments.map(p=>[p.paid_on,name(data.orders,p.order_id,'code'),name(data.departments,p.department_id,'name'),p.reference,sar.format(p.amount)])]
+ ]){
+  show('h3',title,panel);
+  const table=show('table','',panel);
+  const header=table.createTHead().insertRow(),body=table.createTBody();
+  headers.forEach(headerText=>{show('th',headerText,header).scope='col';});
+  for(const values of rows){const line=body.insertRow();for(const value of values)line.insertCell().textContent=value;}
+  if(!rows.length)show('p','No entries yet.',panel);
+ }
+ const orders=data.orders.filter(o=>String(o.project_id)===id);
+ if(!orders.length)return;
+ const form=show('form','',panel);
+ const field=(label,tag,type)=>{
+  const element=show(tag,'',show('label',label,form));
+  if(type)element.type=type;
+  element.required=true;return element;
+ };
+ const order=field('Purchase order','select'),department=field('Execution department','select');
+ const reference=field('Payment reference','input','text'),date=field('Paid on','input','date');
+ const amount=field('Amount','input','number');amount.min='0.01';amount.step='0.01';
+ for(const o of orders)show('option',o.code,order).value=o.id;
+ function refreshDepartments(){
+  department.replaceChildren();
+  for(const d of data.order_departments.filter(d=>String(d.order_id)===order.value)){
+   show('option',name(data.departments,d.department_id,'name'),department).value=d.department_id;
+  }
+ }
+ order.onchange=refreshDepartments;refreshDepartments();
+ const save=show('button','Record payment',form);
+ form.onsubmit=event=>{event.preventDefault();run(save,async()=>{
+  await rpc('add_payment',{p_order:order.value,p_department:department.value,p_reference:reference.value,p_date:date.value,p_amount:amount.value});
+  await openCash(data,id);status.textContent='Payment recorded.';
+ });};
+}
+function configureBilling(data){
+ const picker=byId('billing-customer'), panel=byId('billing-content');
+ const previous=picker.value;
+ picker.replaceChildren();panel.replaceChildren();
+ show('option','Select customer',picker).value='';
+ for(const customer of data.customers)show('option',customer.name,picker).value=customer.id;
+ picker.value=data.customers.some(c=>String(c.id)===previous)?previous:'';
+ byId('billing').hidden=false;
+ picker.onchange=()=>run(picker,()=>openBilling(data,picker.value));
+ if(picker.value)openBilling(data,picker.value).catch(error=>{status.textContent=error.message;});
+}
+async function openBilling(data,id){
+ const panel=byId('billing-content');panel.replaceChildren();
+ if(!id)return;
+ const result=await rpc('billing',{p_customer:id});
+ if(!session||byId('billing-customer').value!==id)return;
+ panel.replaceChildren();
+ const format=new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR'});
+ function input(form,label,type,required=true){
+  const el=show('input','',show('label',label,form));el.type=type;el.required=required;
+  if(type==='number'){el.min='0';el.step='0.01';}return el;
+ }
+ const invoice=show('form','',panel);
+ const order=show('select','',show('label','Purchase order',invoice));order.required=true;
+ for(const item of data.orders.filter(o=>data.projects.some(p=>p.id===o.project_id&&String(p.customer_id)===id)))show('option',item.code,order).value=item.id;
+ const number=input(invoice,'Invoice number','text'), date=input(invoice,'Invoice date','date'),days=input(invoice,'Payment terms (days)','number'),amount=input(invoice,'Invoice amount','number');
+ days.step='1';amount.min='0.01';
+ const save=show('button','Add invoice',invoice);
+ invoice.dataset.billingForm='invoice';
+ invoice.onsubmit=event=>{event.preventDefault();run(save,async()=>{
+  await rpc('add_invoice',{p_order:order.value,p_number:number.value,p_date:date.value,p_days:Number(days.value),p_amount:amount.value,p_planned:byId('workspace').dataset.view==='planned-invoices'});
+  await openBilling(data,id);
+  renderWorkspaceReport();
+ });};
+ const candidates=result.invoices.filter(i=>!i.planned&&Number(i.remaining)>0);
+ if(!candidates.length)return;
+ const receipt=show('form','',panel);receipt.dataset.billingForm='receipt';
+ const reference=input(receipt,'Receipt reference','text'),received=input(receipt,'Receipt date','date'),receiptAmount=input(receipt,'Receipt amount','number');
+ receiptAmount.min='0.01';
+ const allocations=candidates.map(i=>{
+  const field=input(receipt,i.order_code+' / '+i.number+' · open '+format.format(i.remaining),'number',false);
+  field.max=i.remaining;return [i.id,field];
+ });
+ const receive=show('button','Record receipt',receipt);
+ receipt.onsubmit=event=>{event.preventDefault();run(receive,async()=>{
+  await rpc('add_receipt',{p_customer:id,p_reference:reference.value,p_date:received.value,p_amount:receiptAmount.value,
+   p_allocations:allocations.filter(([,field])=>Number(field.value)>0).map(([invoice_id,field])=>({invoice_id,amount:field.value}))});
+  await openBilling(data,id);
+ });};
+}
+function configureBudget(data){
+ const picker=byId('budget-project');
+ const previous=picker.value;
+ picker.replaceChildren();
+ show('option','Select purchase order',picker).value='';
+ for(const order of data.orders)show('option',order.code,picker).value=order.id;
+ if(data.orders.some(order=>String(order.id)===previous))picker.value=previous;
+ byId('budget').hidden=false;
+ const content=byId('budget-content');
+ content.replaceChildren();
+ picker.onchange=()=>run(picker,()=>openBudget(data,picker.value));
+ if(picker.value)openBudget(data,picker.value).catch(error=>{status.textContent=error.message;});
+}
+async function openBudget(data,orderId){
+ const panel=byId('budget-content');
+ panel.replaceChildren();
+ const selectedOrder=data.orders.find(order=>String(order.id)===orderId);
+ if(!selectedOrder)return;
+ const id=String(selectedOrder.project_id);
+ const budget=await rpc('budget',{p_project:id});
+ if(!session||byId('budget-project').value!==orderId)return;
+ const lines=budget.lines.filter(line=>String(line.order_id)===orderId);
+ panel.replaceChildren();
+ const approved=budget.versions.filter(v=>v.approved_at);
+ const revisions=approved.filter(v=>v.revision>0).map(v=>v.revision);
+ const next=approved.length ? approved.at(-1).revision+1 : 0;
+ const fmt=new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR'});
+ const groups=new Map();
+ for(const line of lines){
+  const key=JSON.stringify([line.budget_date,line.order_id,line.department_id,line.category_code]);
+  const row=groups.get(key)||{...line,amounts:new Map()};
+  row.amounts.set(line.revision,Number(line.change_amount));groups.set(key,row);
+ }
+ const total=lines.filter(line=>approved.some(version=>version.revision===line.revision)).reduce((sum,line)=>sum+Number(line.change_amount),0);
+ show('p','Approved cost for '+selectedOrder.code+' · '+fmt.format(total),panel);
+ const table=show('table','',panel);
+ const header=table.createTHead().insertRow();
+ for(const label of ['Date','Purchase order','Department','Category','Original',...revisions.map(n=>'Revision '+n),'Final','Draft change']){
+  show('th',label,header).scope='col';
+ }
+ const body=table.createTBody();
+ const name=(items,id,key='name')=>items.find(x=>x.id===id)?.[key]??id;
+ for(const item of groups.values()){
+  const line=body.insertRow();
+  const final=approved.map(v=>v.revision).reduce((sum,n)=>sum+(item.amounts.get(n)??0),0);
+  for(const value of [item.budget_date,name(data.orders,item.order_id,'code'),name(data.departments,item.department_id),item.category_code,
+    approved.some(v=>v.revision===0)?fmt.format(item.amounts.get(0)??0):'—',...revisions.map(n=>item.amounts.has(n)?fmt.format(item.amounts.get(n)):'—'),fmt.format(final),
+    item.amounts.has(next)?fmt.format(item.amounts.get(next)):'—'])line.insertCell().textContent=value;
+ }
+ const form=show('form','',panel);
+ const field=(label,tag)=>{
+  const node=show(tag,'',show('label',label,form));node.required=true;return node;
+ };
+ const order=field('Purchase order','select'),dept=field('Execution department','select'),category=field('Category','select');
+ const date=field('Budget date','input'),amount=field(next?'Change amount':'Original amount','input');
+ date.type='date';amount.type='number';amount.step='0.01';if(!next)amount.min='0';
+ for(const o of [selectedOrder])show('option',o.code,order).value=o.id;
+ function updateDepartments(){
+  dept.replaceChildren();
+  for(const link of data.order_departments.filter(d=>String(d.order_id)===order.value))show('option',name(data.departments,link.department_id),dept).value=link.department_id;
+ }
+ order.onchange=updateDepartments;updateDepartments();
+ for(const c of data.categories)show('option',c.name,category).value=c.code;
+ const edit=show('button','Edit budget',panel);edit.type='button';
+ form.hidden=true;edit.onclick=()=>{form.hidden=!form.hidden;};
+ const save=show('button','Save draft line',form);
+ form.onsubmit=event=>{event.preventDefault();run(save,async()=>{
+  await rpc('save_budget_line',{p_project:id,p_revision:next,p_order:order.value,p_department:dept.value,p_category:category.value,p_date:date.value,p_change:amount.value});
+  await openBudget(data,orderId);
+ });};
+ const excel=show('div','',panel);
+ excel.className='actions';
+ const headers=['Purchase Order Code','Execution Department ID','Cost Category Code','Budget Date','Amount'];
+ const download=show('button','Download budget template',excel);
+ download.onclick=()=>run(download,async()=>{
+  const book=new ExcelJS.Workbook();
+  const sheet=book.addWorksheet('Budget');
+  sheet.columns=headers.map((header,i)=>({header,width:26,style:{numFmt:i===4?'0.00':'@'}}));
+  sheet.getRow(1).font={bold:true};
+  const guide=book.addWorksheet('References');
+  guide.addRow(['Purchase Order Code','Execution Department ID','Department']);
+  for(const order of [selectedOrder]){
+   for(const link of data.order_departments.filter(item=>item.order_id===order.id)){
+    guide.addRow([order.code,String(link.department_id),name(data.departments,link.department_id)]);
+   }
+  }
+  guide.addRow([]);
+  guide.addRow(['Cost Category Code','Name']);
+  data.categories.forEach(c=>guide.addRow([c.code,c.name]));
+  guide.addRow(['Enter dates as YYYY-MM-DD.']);
+  guide.addRow([next?'Enter signed changes for this revision.':'Enter original amounts for the baseline.']);
+  guide.columns.forEach(column=>{column.width=32;});
+  const url=URL.createObjectURL(new Blob([await book.xlsx.writeBuffer()]));
+  const link=document.createElement('a');
+  link.href=url;link.download='Project_Budget.xlsx';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+ });
+ const exportData=show('button','Export budget to Excel',excel);
+ exportData.onclick=()=>run(exportData,async()=>{
+  const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Budget revisions');
+  sheet.addRow([...headers,'Revision','Status']);
+  for(const line of lines)sheet.addRow([selectedOrder.code,String(line.department_id),line.category_code,line.budget_date,Number(line.change_amount),line.revision,approved.some(v=>v.revision===line.revision)?'Approved':'Draft']);
+  sheet.columns.forEach(column=>{column.width=24;});
+  const url=URL.createObjectURL(new Blob([await book.xlsx.writeBuffer()]));
+  const link=document.createElement('a');link.href=url;link.download=selectedOrder.code+'_Budget.xlsx';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+ });
+ const attachments=show('div','',panel);
+ loadAttachments(attachments,'order',selectedOrder.id).catch(error=>{attachments.textContent=error.message;});
+ const file=show('input','',show('label','Budget workbook',excel));
+ file.type='file';file.accept='.xlsx';
+ const upload=show('button','Import into draft',excel);
+ upload.onclick=()=>run(upload,async()=>{
+  const selected=file.files[0];
+  if(!selected||selected.size>5*1024*1024)throw new Error('Select an Excel workbook up to 5 MB.');
+  const book=new ExcelJS.Workbook();await book.xlsx.load(await selected.arrayBuffer());
+  const sheet=book.getWorksheet('Budget');
+  if(!sheet||headers.some((label,i)=>sheet.getRow(1).getCell(i+1).text.trim()!==label))throw new Error('Use the Project Budget template.');
+  const rows=[];
+  sheet.eachRow((row,n)=>{
+   if(n===1)return;
+   const cells=headers.map((_,i)=>row.getCell(i+1));
+   const values=cells.map((cell,i)=>{
+    if(cell.value instanceof Date&&i===3)return cell.value.toISOString().slice(0,10);
+    if(cell.value&&typeof cell.value==='object')throw new Error('Unsupported cell on row '+n+'.');
+    return cell.text.trim();
+   });
+   if(!values.some(Boolean))return;
+   const [orderCode,department,category,date,amount]=values;
+   if(orderCode!==selectedOrder.code||!/^\d+$/.test(department)||!category||!/^\d{4}-\d{2}-\d{2}$/.test(date)||! /^-?\d+(\.\d{1,2})?$/.test(amount))throw new Error('Invalid data on row '+n+'.');
+   rows.push({source_row:n,order_code:orderCode,department_id:department,category_code:category,budget_date:date,change_amount:amount});
+  });
+  if(!rows.length||rows.length>5000)throw new Error('Include 1 to 5000 budget rows.');
+  if(!confirm('Import '+rows.length+' rows? Matching draft lines will be updated.'))return;
+  const count=await rpc('upload_budget',{p_project:id,p_revision:next,p_rows:rows});
+  await openBudget(data,orderId);
+  status.textContent=count+' budget lines saved in draft.';
+ });
+ if(budget.lines.some(l=>l.revision===next)){
+  const approve=show('button','Approve project-wide '+(next?'revision '+next:'original budget'),panel);
+  approve.onclick=()=>{if(confirm('Approve and lock this budget version?'))run(approve,async()=>{
+   await rpc('approve_budget',{p_project:id,p_revision:next});await openBudget(data,orderId);
+  });};
+ }
+}
+byId('template').onclick=()=>run(byId('template'),async ()=>{
+ const book=new ExcelJS.Workbook();
+ const sheet=book.addWorksheet('Actual Costs',{views:[{state:'frozen',ySplit:1}]});
+ sheet.columns=columns.map(([key,header])=>({key,header,width:26,style:{numFmt:key==='amount'?'0.00':'@'}}));
+ sheet.getRow(1).font={bold:true};
+ sheet.getColumn('transaction_date').numFmt='yyyy-mm-dd';
+ sheet.getCell(1,columns.findIndex(([key])=>key==='reference')+1).note='Use the original voucher or transaction reference.';
+ sheet.getCell(1,columns.findIndex(([key])=>key==='transaction_date')+1).note='Enter an Excel date or YYYY-MM-DD.';
+ const url=URL.createObjectURL(new Blob([await book.xlsx.writeBuffer()]));
+ const link=document.createElement('a');link.href=url;link.download='Actual_Cost_Import.xlsx';link.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+async function parse(file) {
+ if (!file || file.size>5*1024*1024) throw new Error('Select an Excel workbook up to 5 MB.');
+ const book=new ExcelJS.Workbook();await book.xlsx.load(await file.arrayBuffer());
+ const sheet=book.getWorksheet('Actual Costs');
+ if (!sheet || columns.some(([key,label],i)=>{const actual=sheet.getRow(1).getCell(i+1).text.trim().toLowerCase();return actual!==label.toLowerCase()&&!(key==='reference'&&actual==='reference');})) throw new Error('Use the Actual Costs template.');
+ const rows=[];
+ sheet.eachRow((row,number)=>{
+  if (number===1) return;
+  const item={source_row:number};
+  for (const [i,[key]] of columns.entries()) {
+   const cell=row.getCell(i+1);
+   if (cell.value && typeof cell.value==='object' && !(cell.value instanceof Date && key==='transaction_date')) throw new Error('Row '+number+' contains a formula or unsupported cell.');
+   item[key]=cell.value instanceof Date ? cell.value.toISOString().slice(0,10) : cell.text.trim();
+  }
+  if (!columns.some(([key])=>item[key])) return;
+  if (columns.some(([key])=>key!=='subcategory'&&!item[key]) || !/^\d+$/.test(item.department_id) || !/^\d{4}-\d{2}-\d{2}$/.test(item.transaction_date) || !/^-?\d+(\.\d{1,2})?$/.test(item.amount)) throw new Error('Row '+number+' has missing or invalid values.');
+  rows.push(item);
+ });
+ if (!rows.length || rows.length>5000) throw new Error('Include 1 to 5000 cost rows.');
+ return rows;
+}
+function record(parent,row,title) {
+ const panel=show('div','',parent);panel.className='record';
+ show('h3',title,panel);
+ const fields=show('dl','',panel);
+ for (const [key,label] of columns) {
+  show('dt',label,fields);show('dd',row[key] ?? row.order_id ?? '',fields);
+ }
+}
+function checkbox(parent,label) {
+ const wrapper=show('label','',parent);
+ const input=document.createElement('input');input.type='checkbox';wrapper.append(input,document.createTextNode(label));
+ return input;
+}
+async function openBatch(id) {
+ const rows=await rpc('review_cost_batch',{p_batch:id});
+ review.replaceChildren();
+ show('h2','Batch '+id,review);
+ for (const row of rows) {
+  const card=show('article','',review);
+  show('h3','Row '+row.source_row+' · '+row.decision,card);
+  const matches=show('div','',card);matches.className='comparison';
+  record(matches,row,'Imported row');
+  for(const match of row.file_matches) record(matches,match,'Workbook row '+match.source_row+' · '+match.decision);
+  for(const match of row.posted_matches) record(matches,match,'Previously posted · cost #'+match.id);
+  for(const match of row.pending_batch_matches??[]) record(matches,match,'Pending batch '+match.batch_id+' · row '+match.source_row);
+  if(row.decision!=='pending')continue;
+  const needsLink=row.missing_project_department||row.missing_order_department;
+  if(row.unknown_order)show('p','Unknown purchase order. Correct the code and import again.',card).className='warning';
+  if(needsLink)show('p',row.missing_project_department?'Department is not linked to the project.':'Department is not linked to the purchase order.',card).className='warning';
+  const link=needsLink?checkbox(card,'Link department and post'):null;
+  const hasDuplicate=row.file_matches.length||row.posted_matches.length||row.pending_batch_matches?.length;
+  if(hasDuplicate)show('p','Exact duplicate found. Reject it or explicitly accept it before posting.',card).className='warning';
+  const duplicate=hasDuplicate?checkbox(card,'Accept exact duplicate'):null;
+  const actions=show('div','',card);actions.className='actions';
+  for(const post of [true,false]){
+   const button=show('button',post?(hasDuplicate?'Accept and post':'Post row'):(hasDuplicate?'Reject duplicate':'Exclude row'),actions);
+   button.disabled=post&&row.unknown_order;
+   button.onclick=()=>run(button,async()=>{
+    if(post&&((link&&!link.checked)||(duplicate&&!duplicate.checked)))throw new Error('Confirm the flagged items before posting.');
+    await rpc('decide_cost',{p_row:row.id,p_post:post,p_link:!!link?.checked,p_duplicate:!!duplicate?.checked});
+    await openBatch(id);
+   });
+  }
+ }
+}
+byId('upload').onclick=()=>run(byId('upload'),async()=>{
+ const order=actualCostOrder;
+ const file=byId('file').files[0];const rows=await parse(file);
+ if(order){
+  const mismatch=rows.find(row=>row.order_code.toUpperCase()!==order.code.trim().toUpperCase());
+  if(mismatch)throw new Error('Excel row '+mismatch.source_row+' does not belong to '+order.code+'.');
+ }
+ const id=await rpc('stage_costs',{p_source:file.name,p_rows:rows});
+ lookup.elements.batch.value=id;byId('file').value='';
+ status.textContent='Batch '+id+' saved for review.';
+ await openBatch(id);
+});
+lookup.onsubmit=event=>{event.preventDefault();run(event.submitter,()=>openBatch(lookup.elements.batch.value));};
+
+const dashboard=byId('dashboard'), dashboardForm=byId('dashboard-form');
+const dashboardColors=['#2563eb','#0f766e','#c2410c'];
+const amountFormat=new Intl.NumberFormat('en',{maximumFractionDigits:2});
+async function configureDashboard(data){
+ const {customer,department,project,order,from,to}=dashboardForm.elements;
+ function fill(select,items,label){
+  const previous=select.value;
+  select.replaceChildren();
+  show('option',label,select).value='';
+  for(const item of items)show('option',item.name??item.code,select).value=item.id;
+  if(items.some(item=>String(item.id)===previous))select.value=previous;
+ }
+ function cascade(){
+  const eligibleOrders=data.orders.filter(item=>!department.value||data.order_departments.some(link=>link.order_id===item.id&&String(link.department_id)===department.value));
+  const projects=data.projects.filter(item=>(!customer.value||String(item.customer_id)===customer.value)&&(!department.value||eligibleOrders.some(order=>order.project_id===item.id)));
+  fill(project,projects,'All projects');
+  fill(order,eligibleOrders.filter(item=>projects.some(project=>project.id===item.project_id)&&(!project.value||String(item.project_id)===project.value)),'All purchase orders');
+ }
+ fill(customer,data.customers,'All customers');
+ fill(department,data.departments,'All departments');
+ cascade();
+
+ for(const field of [customer,department,project,order]){
+  field.onchange=()=>{
+   if(field!==order)cascade();
+   refreshDashboard(true);
+  };
+ }
+ dashboard.hidden=false;
+ byId('dashboard-empty').hidden=true;
+ await loadDashboard(!from.value||!to.value);
+}
+function chartLegend(parent,series){
+ const legend=show('ul','',parent);
+ legend.className='dashboard-legend';
+ series.forEach(([key,label],i)=>{
+  const item=show('li',label,legend);
+  item.style.borderInlineStartColor=dashboardColors[i];
+ });
+}
+async function renderCashCurves(parent,project,portfolio,includeBudget){
+ const panel=show('div','',parent);
+ const periods=project?await rpc('cash_curve_periods',{p_project:project}):null;
+ const formats=[
+  ['Budget Cash flow','budget_end',[['planned_cost','Planned cost'],['planned_receipts','Expected collections']]],
+  ['Cumulative cash flow (S-curve)','actual_end',[['actual_receipts','Actual collections'],['actual_cost','Actual cost']]]
+ ];
+ const results=await Promise.all(formats.filter((item,index)=>includeBudget||index===1).map(async ([title,end,series])=>{
+  if(!periods)return {title,series,months:portfolio.months};
+  const from=periods.start_date,to=periods[end];
+  if(!from||!to||to<from)return {title,series,months:[]};
+  const result=await rpc('dashboard',{p_project:project,p_from:from,p_to:to});
+  return {title,series,months:result.months,range:from+' – '+to};
+ }));
+ for(const {title,series,months,range} of results){
+  if(!months.length){show('h3',title,panel);show('p','No collection date is available for this curve.',panel);continue;}
+  monthlyChart(panel,title,runningTotals(months,series.map(([key])=>key)),series,true,range);
+ }
+}
+function runningTotals(rows,keys){
+ const totals=Object.fromEntries(keys.map(key=>[key,0]));
+ return rows.map(row=>{
+  keys.forEach(key=>{totals[key]+=Number(row[key]??0);});
+  return {...row,...totals,actual_net:(totals.actual_receipts??0)-(totals.payments??0)};
+ });
+}
+function monthlyChart(parent,title,months,series,lines,range,groupedByCategory=false){
+ const section=show('article','',parent);
+ show('h3',title,section);
+ if(range)show('p',range,section);
+ chartLegend(section,series);
+ const frame=show('div','',section);
+ frame.className='dashboard-scroll';
+ const canvas=show('canvas','',frame);
+ canvas.width=Math.max(720,84+months.length*(groupedByCategory?155:80));
+ canvas.height=groupedByCategory?305:280;
+ canvas.setAttribute('aria-label',title);
+ canvas.setAttribute('role','img');
+ const ctx=canvas.getContext('2d');
+ const values=months.flatMap(row=>series.map(([key])=>Number(row[key])));
+ const max=Math.max(1,...values), min=Math.min(0,...values);
+ const y=value=>230-(value-min)/(max-min)*200;
+ const step=(canvas.width-84)/months.length;
+ const x=i=>76+(i+.5)*step;
+ ctx.font='12px system-ui';
+ for(let tick=0;tick<=4;tick++){
+  const value=min+(max-min)*tick/4;
+  ctx.fillStyle='#475569';
+  ctx.fillText(new Intl.NumberFormat('en',{notation:'compact'}).format(value),4,y(value)+4);
+  ctx.fillStyle='#dbe5ef';
+  ctx.fillRect(72,y(value),canvas.width-76,1);
+ }
+ const labelFor=row=>groupedByCategory?row.name:row.month.slice(0,7);
+ months.forEach((month,i)=>{
+  ctx.fillStyle='#475569';
+  if(!groupedByCategory){ctx.fillText(labelFor(month),x(i)-24,255);return;}
+  ctx.textAlign='center';
+  const words=labelFor(month).split(/\s+/);
+  let line='', labelY=253;
+  for(const word of words){
+   const next=line?line+' '+word:word;
+   if(line&&ctx.measureText(next).width>step-12){
+    ctx.fillText(line,x(i),labelY,step-12);
+    labelY+=15;line=word;
+   }else line=next;
+  }
+  ctx.fillText(line,x(i),labelY,step-12);
+  ctx.textAlign='start';
+ });
+ series.forEach(([key],index)=>{
+  ctx.strokeStyle=ctx.fillStyle=dashboardColors[index];
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  months.forEach((month,i)=>{
+   const value=Number(month[key]);
+   if(lines){
+    if(i===0)ctx.moveTo(x(i),y(value));
+    else ctx.lineTo(x(i),y(value));
+   }else{
+    ctx.fillRect(x(i)+(index-series.length/2)*18,Math.min(y(0),y(value)),15,Math.abs(y(0)-y(value)));
+   }
+  });
+  if(lines){
+   ctx.stroke();
+   months.forEach((month,i)=>{
+    ctx.beginPath();
+    ctx.arc(x(i),y(Number(month[key])),3,0,2*Math.PI);
+    ctx.fill();
+   });
+  }
+ });
+ const details=show('details','',section);
+ show('summary',groupedByCategory?'Totals by parent item':'Monthly totals',details);
+ const table=show('table','',details), head=table.createTHead().insertRow();
+ [groupedByCategory?'Parent item':'Month',...series.map(([,label])=>label)].forEach(label=>show('th',label,head));
+ const body=table.createTBody();
+ months.forEach(month=>{
+  const row=body.insertRow();
+  show('td',labelFor(month),row);
+  series.forEach(([key])=>show('td',amountFormat.format(month[key]),row));
+ });
+}
+function donut(parent,title,values){
+ const section=show('article','',parent);
+ show('h3',title,section);
+ const total=values.reduce((sum,[,value])=>sum+Math.max(0,value),0);
+ let angle=0;
+ const segments=values.map(([,value],i)=>{
+  const start=angle;
+  angle+=total?100*Math.max(0,value)/total:0;
+  return dashboardColors[i]+' '+start+'% '+angle+'%';
+ });
+ if(total && values.every(([,value])=>value>=0)){
+  const visual=show('div','',section);
+  visual.className='dashboard-donut';
+  visual.style.background='conic-gradient('+segments.join(',')+')';
+  visual.setAttribute('aria-hidden','true');
+ }
+ chartLegend(section,values.map(([label,value])=>['',label+' · '+amountFormat.format(value)]));
+}
+async function loadDashboard(auto=false){
+  const container=byId('dashboard-results'), form=new FormData(dashboardForm);
+  container.replaceChildren();
+  const target=show('div','',container);
+  const filters=Object.fromEntries(['customer','department','project','order','from','to'].map(key=>['p_'+key,form.get(key)||null]));
+  if(auto)filters.p_from=filters.p_to=null;
+  const result=await rpc('dashboard_filtered',filters);
+  if(!target.isConnected)return;
+  const {from,to}=result;
+  dashboardForm.elements.from.value=from;
+  dashboardForm.elements.to.value=to;
+  const labels=['customer','department','project','order'].filter(key=>form.get(key)).map(key=>dashboardForm.elements[key].selectedOptions[0].textContent);
+  show('h3',(labels.join(' / ')||'All open projects')+' · '+from+' – '+to,target);
+  const months=result.months, total=key=>months.reduce((sum,month)=>sum+Number(month[key]),0);
+  const kpis=show('div','',target);kpis.className='dashboard-kpis';
+  for(const [label,value] of [
+   ['Planned cost',total('planned_cost')],['Actual cost',total('actual_cost')],['Planned invoicing',total('planned_billing')],['Actual invoicing',total('actual_billing')],
+   ['Expected collections',total('planned_receipts')],['Actual collections',total('actual_receipts')],['Actual payments',total('payments')],['Net cash',total('actual_receipts')-total('payments')]
+  ]){
+   const card=show('div','',kpis);show('span',label,card);show('strong',reportMoney.format(value),card);
+  }
+  monthlyChart(target,'Monthly planned and actual cost',months,[['planned_cost','Planned cost'],['actual_cost','Actual cost']],false);
+  await renderCashCurves(target,null,result,true);
+  const comparisons=show('div','',target);
+  comparisons.className='dashboard-comparisons';
+  donut(comparisons,'Planned and actual billing',[['Planned billing',total('planned_billing')],['Actual billing',total('actual_billing')]]);
+  donut(comparisons,'Actual billing and collections',[['Actual billing',total('actual_billing')],['Actual collections',total('actual_receipts')]]);
+  donut(comparisons,'Actual cash inflows and outflows',[['Actual collections',total('actual_receipts')],['Actual payments',total('payments')]]);
+  const costTitle='Planned and actual costs by parent item';
+  if(result.categories.length){
+   monthlyChart(target,costTitle,result.categories,[['planned_cost','Planned cost'],['actual_cost','Actual cost']],false,null,true);
+  }else{
+   const empty=show('article','',target);
+   show('h3',costTitle,empty);
+   show('p','No costs for this period.',empty);
+  }
+}
+function refreshDashboard(auto=false){
+ if(!auto&&!dashboardForm.reportValidity())return;
+ loadDashboard(auto).catch(error=>{status.textContent=error.message;});
+}
+dashboardForm.onsubmit=event=>{event.preventDefault();refreshDashboard();};
+for(const name of ['from','to'])dashboardForm.elements[name].onchange=()=>refreshDashboard();
+
+const reportModes={"budget":["Budget schedules","budget","cost"],"costs":["Actual costs","cost","budget"],"planned-invoices":["Planned invoices","planned_invoice","actual_invoice"],"actual-invoices":["Actual invoices","actual_invoice","planned_invoice"],"planned-receipts":["Expected collections","planned_receipt","actual_receipt"],"actual-receipts":["Actual collections","actual_receipt","planned_receipt"]};
+let workspaceData=null, workspaceMembers=[];
+const reportFilters={};
+const reportMoney=new Intl.NumberFormat('en-SA',{style:'currency',currency:'SAR'});
+function customerDepartmentPicker(form,departments,selection,title){
+ const picker=show('details','',form);
+ const summary=show('summary','Departments',picker);
+ const search=show('input','',picker);search.type='search';search.placeholder='Search departments';
+ search.setAttribute('aria-label','Search departments');
+ const all=show('button','Select all departments',picker);all.type='button';
+ const list=show('div','',picker);
+ function render(){
+  const locked=all.disabled;
+  summary.textContent=title+' ('+selection.size+' selected)';
+  const query=search.value.trim().toLowerCase();
+  list.replaceChildren();
+  for(const department of departments.filter(item=>item.name.toLowerCase().includes(query))){
+   const label=show('label','',list), check=show('input','',label);check.type='checkbox';
+   label.append(' '+department.name);
+   check.disabled=locked;
+   check.checked=selection.has(department.id);
+   check.onchange=()=>{
+    if(check.checked)selection.add(department.id);else selection.delete(department.id);
+    summary.textContent='Departments ('+selection.size+' selected)';
+   };
+  }
+ }
+ all.onclick=()=>{departments.forEach(item=>selection.add(item.id));render();};
+ search.oninput=render;
+ return ()=>{search.value='';picker.open=false;render();};
+}
+function reportTable(parent,headers,rows){
+ const wrap=show('div','',parent); wrap.className='report-table';
+ const table=show('table','',wrap), head=table.createTHead().insertRow(), body=table.createTBody();
+ headers.forEach(label=>show('th',label,head).scope='col');
+ rows.forEach(values=>{const row=body.insertRow();values.forEach(value=>{const cell=row.insertCell();if(value instanceof Node)cell.append(value);else cell.textContent=value;});});
+}
+function renderCatalogOverview(panel,view){
+ const d=workspaceData;
+ const ordersFor=projectIds=>d.orders.filter(order=>projectIds.includes(order.project_id));
+ const orderSummary=orders=>{
+  const first=orders.filter(order=>order.start_date).sort((a,b)=>a.start_date.localeCompare(b.start_date)||a.id-b.id)[0];
+  const amounts=orders.filter(order=>order.contract_value!=null);
+  return [first?.start_date??'—',first?.end_date??'—',amounts.length?reportMoney.format(amounts.reduce((sum,order)=>sum+Number(order.contract_value),0)):'—'];
+ };
+ const configs={
+  customers:()=>[d.customers,['Customer','Projects','Start date','End date','Order value'],row=>{const projects=d.projects.filter(project=>project.customer_id===row.id);return [row.name,projects.length,...orderSummary(ordersFor(projects.map(project=>project.id)))];}],
+  departments:()=>[d.departments,['Department','Customers','Projects'],row=>[row.name,d.department_customers.filter(link=>link.department_id===row.id).length,d.project_departments.filter(link=>link.department_id===row.id).length]],
+  projects:()=>[d.projects,['Project','Status','Orders','Start date','End date','Order value'],row=>{const orders=ordersFor([row.id]);return [row.name,row.status,orders.length,...orderSummary(orders)];}],
+  orders:()=>[d.orders.filter(order=>!order.closed_at),['Code','Order number','Project','Start date','End date','Order value excluding VAT','Primary department','Secondary departments'],row=>[row.code,row.order_number??'—',d.projects.find(project=>project.id===row.project_id)?.name??'',...orderSummary([row]),d.departments.find(dept=>dept.id===row.primary_department_id)?.name??'—',d.departments.filter(dept=>row.secondary_department_ids?.includes(dept.id)).map(dept=>dept.name).join(', ')]],
+  'closed-orders':()=>[d.orders.filter(order=>order.closed_at),['Purchase order','Project'],row=>[row.code,d.projects.find(project=>project.id===row.project_id)?.name??'']],
+  members:()=>[workspaceMembers,['Name','Email','Status','Finance administrator','System administrator'],row=>[row.display_name,row.email,row.active?'Active':'Suspended',row.finance_admin?'Yes':'No',row.system_admin?'Yes':'No']]
+ };
+ panel.hidden=!configs[view]||(!d&&view!=='members');
+ if(panel.hidden)return;
+ const [records,headers,format]=configs[view]();
+ const pageNames={customers:['Customers','Add customer'],departments:['Departments','Add department'],projects:['Projects','Add project'],orders:['Open customer purchase orders','Add purchase order']};
+ const editor=catalogDialogs[view];
+ if(pageNames[view]&&editor){
+  const heading=show('div','',panel);heading.className='catalog-page-heading';
+  show('h2',pageNames[view][0],heading);
+  const add=show('button',pageNames[view][1],heading);add.type='button';add.onclick=()=>editor();
+ }
+ show(pageNames[view]?'h3':'h2','Overview',panel);
+ const filterRow=show('div','',panel);filterRow.className='report-filters';
+ const search=show('input','',show('label','Search',filterRow));search.type='search';
+ const orderFilters={};
+ if(pageNames[view])for(const [key,label,options] of [['customer','Customer',d.customers],['project','Project',d.projects],['department','Department',d.departments],['order','Purchase order',d.orders]]){
+  const field=show('select','',show('label',label,filterRow));
+  show('option','All',field).value='';
+  for(const option of options)show('option',option.name??option.code,field).value=option.id;
+  field.onchange=()=>refresh(true);orderFilters[key]=field;
+ }
+ const dimension={customers:'customer_id',departments:'filter_department',projects:'project_id',orders:'order_id','closed-orders':'order_id'}[view];
+ const year=new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Riyadh'}).format(new Date());
+ let from,to,financial=[],requestId=0;
+ if(dimension){
+  from=show('input','',show('label','From',filterRow));from.type='date';from.value=year+'-01-01';
+  to=show('input','',show('label','To',filterRow));to.type='date';to.value=year+'-12-31';
+ }
+ const cards=show('div','',panel);cards.className='dashboard-kpis';
+ const chart=show('div','',panel);
+ const result=show('div','',panel), note=show('p','',panel);
+ const metrics=['budget','cost','planned_invoice','actual_invoice','planned_receipt','actual_receipt'];
+ const labels=['Approved budget','Actual costs','Planned invoices','Actual invoices','Expected collections','Actual collections'];
+ function totals(entries){
+  const values=Object.fromEntries(metrics.map(key=>[key,0]));
+  entries.forEach(entry=>{if(Object.hasOwn(values,entry.metric))values[entry.metric]+=Number(entry.amount);});
+  return metrics.map(key=>reportMoney.format(values[key]));
+ }
+ function update(){
+  const query=search.value.trim().toLowerCase();
+  const value=key=>orderFilters[key]?.value||'';
+  const departmentMatch=(id,order)=>d.order_departments.some(link=>link.order_id===order.id&&String(link.department_id)===String(id));
+  const scopedOrders=d.orders.filter(order=>{
+   const project=d.projects.find(item=>item.id===order.project_id);
+   return (!value('customer')||String(project?.customer_id)===value('customer'))&&
+    (!value('project')||String(order.project_id)===value('project'))&&
+    (!value('order')||String(order.id)===value('order'))&&
+    (!value('department')||departmentMatch(value('department'),order));
+  });
+  const filtered=Object.values(orderFilters).some(field=>field.value);
+  const selected=records.filter(record=>{
+   if(!format(record).some(cell=>String(cell).toLowerCase().includes(query)))return false;
+   if(!filtered)return true;
+   return scopedOrders.some(order=>{
+    if(view==='orders')return order.id===record.id;
+    if(view==='projects')return order.project_id===record.id;
+    if(view==='departments')return (!value('department')||String(record.id)===value('department'))&&departmentMatch(record.id,order);
+    return d.projects.some(project=>project.id===order.project_id&&project.customer_id===record.id);
+   });
+  });
+  const eligible=new Set(scopedOrders.map(order=>String(order.id)));
+  result.replaceChildren();chart.replaceChildren();
+  show('p',selected.length+' of '+records.length+' records',result);
+  if(!dimension){reportTable(result,headers,selected.map(format));return;}
+  const grouped=new Map();
+  for(let entry of financial){
+   if(filtered&&!eligible.has(String(entry.order_id)))continue;
+   if(orderFilters.department?.value&&['budget','cost','payment'].includes(entry.metric)&&String(entry.filter_department)!==orderFilters.department.value)continue;
+   if(view==='departments'&&orderFilters.department?.value&&!['budget','cost','payment'].includes(entry.metric))entry={...entry,filter_department:orderFilters.department.value};
+   const key=String(entry[dimension]);
+   if(!grouped.has(key))grouped.set(key,[]);
+   grouped.get(key).push(entry);
+  }
+  const rows=selected.map(record=>{
+   const [name,...rest]=format(record);
+   if(!editor)return [name,...rest,...totals(grouped.get(String(record.id))??[])];
+   const title=document.createElement('div');title.className='catalog-row-name';title.append(name);
+   const open=show('button','Open',title);open.type='button';open.onclick=()=>editor(record);
+   if(view==='orders'){
+    const controls=document.createElement('div');controls.className='order-links order-row-actions';
+    for(const [label,mode] of [['Budget','budget'],['Budget vs actual','comparison']]){
+     const button=show('button',label,controls);button.type='button';
+     button.onclick=()=>openOrderAnalysis(record,mode,from.value,to.value);
+    }
+    const add=show('button','Add Budget',controls);add.type='button';add.onclick=()=>openOrderAnalysis(record,'add',from.value,to.value);
+    const addCosts=show('button','Add actual costs',controls);addCosts.type='button';
+    addCosts.onclick=()=>{
+     actualCostOrder=record;
+     byId('file').value='';lookup.reset();review.replaceChildren();
+     selectWorkspace('costs');
+     byId('cost-import').scrollIntoView({block:'start'});
+    };
+    title.append(controls);
+    const alert=d.orderAlerts?.[record.id];
+    const flags=[alert?.late?'Delayed':'',alert?.over_budget?'Over budget':''].filter(Boolean);
+    return [title,...rest,...totals(grouped.get(String(record.id))??[]),flags.join(' · ')||(alert?.has_budget?'On track':'No approved budget')];
+   }
+   return [title,...rest,...totals(grouped.get(String(record.id))??[])];
+  });
+  const matching=selected.flatMap(record=>grouped.get(String(record.id))??[]);
+  cards.replaceChildren();
+  const receipts=matching.filter(row=>row.metric==='actual_receipt').reduce((sum,row)=>sum+Number(row.amount),0);
+  const payments=matching.filter(row=>row.metric==='payment').reduce((sum,row)=>sum+Number(row.amount),0);
+  const cardLabels=[...labels,'Actual payments','Net cash'];
+  [...totals(matching),reportMoney.format(payments),reportMoney.format(receipts-payments)].forEach((value,index)=>{
+   const card=show('div','',cards);show('span',cardLabels[index],card);show('strong',value,card);
+  });
+  const summary=['Total',...headers.slice(1).map(()=>''),...totals(matching)];
+  if(view==='orders')summary.push('');
+  reportTable(result,[...headers,...labels,...(view==='orders'?['Order status']:[])],[summary,...rows]);
+  if(view==='orders')renderOrderComparison(chart,matching,d);
+  else if(matching.length){
+   const groupedMonths=new Map();
+   for(const entry of matching){
+    const month=entry.event_date.slice(0,7);
+    if(!groupedMonths.has(month))groupedMonths.set(month,{month,budget:0,cost:0});
+    if(entry.metric==='budget'||entry.metric==='cost')groupedMonths.get(month)[entry.metric]+=Number(entry.amount);
+   }
+   monthlyChart(chart,'Aggregate budget and actual costs',[...groupedMonths.values()].sort((a,b)=>a.month.localeCompare(b.month)),[['budget','Approved budget'],['cost','Actual costs']],false);
+  }
+ }
+ async function refresh(auto=false){
+  const current=++requestId;
+  if(!auto&&(!from.value||!to.value||from.value>to.value)){financial=[];update();note.textContent='Select a valid date range.';return;}
+  note.textContent='Loading financial totals…';
+  try{
+   if(auto){
+    const scope=await rpc('dashboard_filtered',{p_from:null,p_to:null,...Object.fromEntries(['customer','department','project','order'].map(key=>['p_'+key,orderFilters[key]?.value||null]))});
+    if(current!==requestId||!panel.contains(result))return;
+    from.value=scope.from;to.value=scope.to;
+   }
+   const rows=await rpc('financial_rows',{p_from:from.value,p_to:to.value});
+   if(current!==requestId||!panel.contains(result))return;
+   financial=rows;
+   note.textContent='';
+   update();
+  }catch(error){
+   if(current===requestId&&panel.contains(result)){financial=[];update();note.textContent=error.message;}
+  }
+ }
+ search.oninput=update;
+ if(dimension){from.onchange=to.onchange=()=>refresh();refresh();}
+ update();
+}
+function renderOrderComparison(panel,rows,data){
+ const groups=new Map();
+ for(const row of rows){
+  if(!['budget','cost'].includes(row.metric))continue;
+  const item=groups.get(row.category)??{budget:0,cost:0};
+  item[row.metric]+=Number(row.amount);groups.set(row.category,item);
+ }
+ show('h3','Cost items · approved budget vs actual',panel);
+ if(!groups.size){show('p','No budget or cost entries in this period.',panel);return;}
+ const max=Math.max(1,...[...groups.values()].flatMap(item=>[Math.abs(item.budget),Math.abs(item.cost)]));
+ reportTable(panel,['Cost item','Approved budget','Actual cost','Budget less actual'],[...groups].map(([code,item])=>{
+  const bar=(value,color)=>{
+   const wrapper=document.createElement('div');wrapper.append(reportMoney.format(value));
+   const meter=show('div','',wrapper);meter.style.cssText='height:6px;border-radius:3px;background:'+color+';width:'+Math.abs(value)/max*100+'%';
+   return wrapper;
+  };
+  return [data.categories.find(category=>category.code===code)?.name??code,bar(item.budget,'#2563eb'),bar(item.cost,'#0f766e'),reportMoney.format(item.budget-item.cost)];
+ }));
+}
+
+function renderOrderPlan(panel,order,data,budget){
+ panel.replaceChildren();
+ const approved=budget.versions.filter(version=>version.approved_at);
+ const revision=approved.length?Math.max(...approved.map(version=>version.revision))+1:0;
+ const form=show('form','',panel);
+ const actions=show('div','',form);actions.className='budget-plan-actions';
+ const save=show('button','Save and post plan',actions);save.type='submit';
+ const feedback=show('p','',actions);feedback.setAttribute('role','status');
+ show('p',revision?'Enter cost changes for draft revision '+revision+'.':'Enter original budget costs.',form);
+ const departments=data.departments.filter(department=>data.order_departments.some(link=>link.order_id===order.id&&link.department_id===department.id));
+ const categorySheets=data.categories.map((item,index)=>{
+  const special=item.code==='DEP'?'asset':item.code==='LAB'?'labor':'';
+  const headers=special==='asset'?['Department','Asset','Asset value','Useful life (years)','From','To','Project depreciation']:
+   special==='labor'?['Department','Worker category','Gross monthly salary','Other benefits %','From','To','Project labor cost']:
+   ['Department','Budget date','Amount'];
+  return {code:item.code,name:(String(index+1)+' '+item.name.replace(/[\\/:?*\[\]]/g,'-')).slice(0,31).replace(/'+$/,''),special,headers};
+ });
+ const definitions=[
+  ['Budget costs',['Department ID','Cost category code','Budget date','Amount'],[
+   ['department_id','Department',departments.map(item=>[item.id,item.name])],
+   ['category_code','Cost category',data.categories.map(item=>[item.code,item.name])],
+   ['budget_date','Budget date','date'],['change_amount','Amount','number']]],
+  ['Planned invoices',['Invoice number','Invoice date','Expected collection date','Amount'],[
+   ['number','Invoice number','text'],['invoice_date','Invoice date','date'],['receipt_date','Expected collection date','date'],['amount','Amount','number']]]
+ ];
+ const editors=definitions.map(([name,headers,fields])=>{
+  const section=show('section','',form);show('h3',name,section);
+  const headings=show('div','',section);headings.className='plan-row plan-column-headings';
+  for(const [,label] of fields)show('span',label,headings);
+  show('span','Action',headings);
+  const rows=show('div','',section), add=show('button','Add row',section);add.type='button';
+  function addRow(values={},sourceRow){
+   const row=show('div','',rows);row.className='plan-row';
+   if(sourceRow)row.dataset.excelRow=sourceRow;
+   for(const [key,label,type] of fields){
+    const control=show(Array.isArray(type)?'select':'input','',show('div','',row));
+    control.dataset.key=key;control.setAttribute('aria-label',label);
+    if(Array.isArray(type)){
+     show('option','Select',control).value='';
+     for(const [value,name] of type)show('option',name,control).value=value;
+    }else{
+     control.type=type;if(type==='number')control.step='0.01';
+    }
+    control.value=values[key]??'';
+   }
+   const remove=show('button','Remove',row);remove.type='button';remove.onclick=()=>row.remove();
+  }
+  add.onclick=()=>addRow();
+  addRow();
+  return {name,headers,fields,rows,addRow};
+ });
+ const workbook=show('input','',show('label','Load Excel workbook into form',form));workbook.type='file';workbook.accept='.xlsx';
+
+ const template=show('button','Download Excel template',form);template.type='button';
+ template.onclick=()=>run(template,async()=>{
+  const book=new ExcelJS.Workbook();
+  const invoices=editors[1];book.addWorksheet(invoices.name).columns=invoices.headers.map(header=>({header,width:28}));
+  const guide=book.addWorksheet('References');
+  guide.columns=['Department','Department ID','Cost category','Cost category code'].map(header=>({header,width:34}));
+  departments.forEach((item,index)=>{
+   guide.getCell(index+2,1).value=item.name;guide.getCell(index+2,2).value=String(item.id);
+  });
+  data.categories.forEach((item,index)=>{
+   guide.getCell(index+2,3).value=item.name;guide.getCell(index+2,4).value=item.code;
+  });
+  if(departments.length)book.definedNames.add("'References'!$A$2:$A$"+(departments.length+1),'OrderDepartments');
+  const summary=book.addWorksheet('Provision');
+  summary.columns=[{width:35},{width:24}];
+  summary.addRow(['Cost item','Total']);
+  for(const definition of categorySheets){
+   const sheet=book.addWorksheet(definition.name);
+   sheet.columns=definition.headers.map(header=>({header,width:26}));
+   if(departments.length)sheet.dataValidations.add('A2:A5001',{type:'list',allowBlank:true,showErrorMessage:true,errorStyle:'stop',formulae:['OrderDepartments']});
+   const amountColumn=definition.special?'G':'C';
+   if(definition.special){
+    for(const column of ['E','F'])sheet.getColumn(column).numFmt='yyyy-mm-dd';
+    if(definition.special==='labor')sheet.getColumn('D').numFmt='0.00%';
+    sheet.getColumn('G').numFmt='#,##0.00';
+    for(let n=2;n<=5001;n++){
+     const compute=definition.special==='asset'?
+      'MIN(C'+n+',C'+n+'/D'+n+'*(F'+n+'-E'+n+'+1)/365)':
+      'C'+n+'*(1+D'+n+')*12*(F'+n+'-E'+n+'+1)/365';
+     sheet.getCell('G'+n).value={formula:'IF(OR(COUNT(C'+n+':F'+n+')<4,F'+n+'<E'+n+(definition.special==='asset'?',D'+n+'<=0':'')+'),"",ROUND('+compute+',2))'};
+    }
+   }else sheet.getColumn('B').numFmt='yyyy-mm-dd';
+   summary.addRow([definition.name,{formula:"SUM('"+definition.name.replaceAll("'","''")+"'!"+amountColumn+"2:"+amountColumn+"5001)"}]);
+  }
+  const totalRow=summary.rowCount+1;
+  summary.addRow(['Total costs',{formula:'SUM(B2:B'+(totalRow-1)+')'}]);
+  summary.addRow(['Suggested provision rate',0.10]).getCell(2).numFmt='0%';
+  summary.addRow(['Provision amount',{formula:'ROUND(B'+totalRow+'*B'+(totalRow+1)+',2)'}]);
+  summary.addRow(['Total including provision',{formula:'B'+totalRow+'+B'+(totalRow+2)}]);
+  summary.addRow(['Straight-line depreciation and labor use inclusive dates and a 365-day year.']);
+  const url=URL.createObjectURL(new Blob([await book.xlsx.writeBuffer()]));
+  const link=document.createElement('a');link.href=url;link.download=order.code+'_Plan.xlsx';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+ });
+ workbook.onchange=async()=>{
+  const file=workbook.files[0];if(!file)return;
+  try{
+   if(file.size>5*1024*1024)throw new Error('Select an Excel workbook up to 5 MB.');
+   const book=new ExcelJS.Workbook();await book.xlsx.load(await file.arrayBuffer());
+   const specialCosts=[];
+   const dateText=value=>{
+    if(value instanceof Date)return value.toISOString().slice(0,10);
+    if(typeof value==='number'){
+     const epoch=book.properties.date1904?Date.UTC(1904,0,1):Date.UTC(1899,11,value<60?31:30);
+     return new Date(epoch+Math.floor(value)*86400000).toISOString().slice(0,10);
+    }
+    return String(value??'').trim().replace(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/,(_,m,d,y)=>y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0'));
+   };
+   for(const definition of categorySheets){
+    const sheet=book.getWorksheet(definition.name);
+    if(!sheet)continue;
+    if(definition.headers.some((label,index)=>sheet.getRow(1).getCell(index+1).text.trim()!==label))throw new Error('Invalid columns in '+definition.name);
+    sheet.eachRow((row,n)=>{
+     if(n===1)return;
+     const fields=definition.headers.slice(0,definition.special?6:3).map((_,index)=>{
+      const value=row.getCell(index+1).value;return value?.result??value;
+     });
+     if(fields.every(value=>value==null||value===''))return;
+     const fail=()=>{throw new Error(definition.name+' · Excel row '+n+': check department, amount and dates.');};
+     const [department,second,third,fourth,fifth,sixth]=fields;
+     const key=String(department??'').trim().toLowerCase();
+     const linked=departments.find(item=>String(item.id)===key||item.name.toLowerCase()===key);
+     const start=dateText(definition.special?fifth:second);
+     const end=definition.special?dateText(sixth):start;
+     const base=Number(third), factor=Number(fourth);
+     const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+     if(!linked||!validDate(start)||!validDate(end)||start>end||third==null||third===''||!Number.isFinite(base))fail();
+     if(definition.special&&(!String(second??'').trim()||fourth==null||fourth===''||!Number.isFinite(factor)||base<0||(definition.special==='asset'?factor<=0:factor<0)))fail();
+     const days=(Date.parse(end)-Date.parse(start))/86400000+1;
+     const value=definition.special==='asset'?Math.min(base,base/factor*days/365):
+      definition.special==='labor'?base*(1+factor)*12*days/365:base;
+     if(days>3660||!Number.isFinite(value))fail();
+     const endTime=Date.parse(end);
+     let allocated=0;
+     for(let day=Date.parse(start);day<=endTime;){
+      const current=new Date(day);
+      const next=Math.min(Date.UTC(current.getUTCFullYear(),current.getUTCMonth()+1,1),endTime+86400000);
+      const elapsed=(next-Date.parse(start))/86400000;
+      const cumulative=Math.round(value*100*elapsed/days);
+      specialCosts.push({sourceRow:n,record:{department_id:String(linked.id),category_code:definition.code,budget_date:current.toISOString().slice(0,10),change_amount:((cumulative-allocated)/100).toFixed(2)}});
+      allocated=cumulative;
+      day=next;
+     }
+    });
+   }
+   const parsed=editors.map(({name,headers,fields})=>{
+    const sheet=book.getWorksheet(name), rows=[];
+    if(!sheet)return rows;
+    const alternate=name==='Budget costs'?['Department','Cost category',...headers.slice(2)]:headers;
+    if(![headers,alternate].some(labels=>labels.every((label,index)=>sheet.getRow(1).getCell(index+1).text.trim()===label)))throw new Error('Invalid columns in '+name);
+    sheet.eachRow((row,n)=>{
+     if(n===1)return;
+     const record=Object.fromEntries(fields.map(([key,,type],index)=>{
+      const cell=row.getCell(index+1);
+      const value=cell.value?.result??cell.value;
+      let raw=typeof value==='number'?String(value):cell.text.trim();
+      if(type==='date'&&value instanceof Date)raw=value.toISOString().slice(0,10);
+      else if(type==='date'&&typeof value==='number'){
+       const epoch=book.properties.date1904?Date.UTC(1904,0,1):Date.UTC(1899,11,value<60?31:30);
+       const date=new Date(epoch+Math.floor(value)*86400000);
+       raw=Number.isNaN(date.getTime())?'':date.toISOString().slice(0,10);
+      }
+      if(type==='date'){
+       const dotted=/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(raw);
+       if(dotted)raw=dotted[3]+'-'+dotted[1].padStart(2,'0')+'-'+dotted[2].padStart(2,'0');
+      }
+      if(type==='number'&&/^-?\d+(?:\.\d+)?$/.test(raw)){
+       const [whole,fraction='']=raw.replace(/^-/,'').split('.');
+       const cents=BigInt(whole)*100n+BigInt(fraction.padEnd(2,'0').slice(0,2))+(Number(fraction[2]??0)>=5?1n:0n);
+       raw=(raw.startsWith('-')&&cents!==0n?'-':'')+(cents/100n)+'.'+String(cents%100n).padStart(2,'0');
+      }
+      if(raw&&(type==='date'||type==='number')){
+       const validator=document.createElement('input');validator.type=type;validator.value=raw;
+       if(!validator.value)throw new Error(name+' · Excel row '+n+': invalid '+fields[index][1]+' ('+raw+').');
+      }
+      if(!raw||!Array.isArray(type))return [key,raw];
+      const normalize=value=>String(value).trim().toLowerCase();
+      const match=type.find(([code])=>normalize(code)===normalize(raw))??type.find(([,label])=>normalize(label)===normalize(raw));
+      if(!match)throw new Error(name+' row '+n+': unknown '+fields[index][1]+' "'+raw+'". Use a value from the template dropdown.');
+      return [key,String(match[0])];
+     }));
+     if(Object.values(record).some(Boolean))rows.push({record,sourceRow:n});
+    });
+    return rows;
+   });
+   const mergedCosts=new Map();
+   for(const item of [...parsed[0],...specialCosts]){
+    const row=item.record;
+    if(!row.department_id||!row.category_code||!row.budget_date||!row.change_amount){mergedCosts.set(Symbol(),item);continue;}
+    const key=JSON.stringify([row.department_id,row.category_code,row.budget_date]);
+    const previous=mergedCosts.get(key);
+    mergedCosts.set(key,previous?{...previous,record:{...row,change_amount:(Number(previous.record.change_amount)+Number(row.change_amount)).toFixed(2)}}:item);
+   }
+   parsed[0]=[...mergedCosts.values()];
+   if(!parsed.flat().length||parsed.flat().length>5000)throw new Error('Include 1 to 5000 rows.');
+   editors.forEach((editor,index)=>{editor.rows.replaceChildren();for(const {record,sourceRow} of parsed[index])editor.addRow(record,sourceRow);});
+   feedback.textContent='Workbook loaded. Amounts are rounded to two decimals. Review the rows and click Save and post plan.';
+  }catch(error){feedback.textContent=error.message;}
+ };
+
+ form.onsubmit=event=>{
+  event.preventDefault();
+  run(save,async()=>{
+   try{
+    const [costs,invoices]=editors.map(editor=>[...editor.rows.children].flatMap((row,index)=>{
+     const record=Object.fromEntries([...row.querySelectorAll('[data-key]')].map(control=>[control.dataset.key,control.value.trim()]));
+     if(!Object.values(record).some(Boolean))return [];
+     const missing=editor.fields.filter(([key])=>!record[key]).map(([,label])=>label);
+     const rowLabel=row.dataset.excelRow?'Excel row '+row.dataset.excelRow:'row '+(index+1);
+     if(missing.length)throw new Error(editor.name+' · '+rowLabel+': missing '+missing.join(', ')+'.');
+     return [{...record,source_row:Number(row.dataset.excelRow)||index+1}];
+    }));
+    if(!costs.length&&!invoices.length)throw new Error('Enter or import at least one budget or invoice row.');
+    await rpc('save_order_plan',{p_order:order.id,p_revision:revision,p_costs:costs.map(row=>({...row,order_code:order.code})),p_invoices:invoices});
+    for(const editor of editors){editor.rows.replaceChildren();editor.addRow();}
+    workbook.value='';
+    if(form.isConnected)await openOrderAnalysis(order,'budget');
+   }catch(error){feedback.textContent=error.message;}
+  });
+ };
+}
+function renderBudgetAdmin(result,order,data,budget){
+ const lines=budget.lines.filter(line=>String(line.order_id)===String(order.id));
+ if(!lines.length)return;
+ const actions=show('details','',result);
+ show('summary','Manage budget',actions);
+ const feedback=show('p','',actions);feedback.setAttribute('role','alert');
+ function change(button,args){
+  run(button,async()=>{
+   try{
+    await rpc('manage_order_budget',{p_order:order.id,...args});
+    await openOrderAnalysis(order,'budget');
+   }catch(error){feedback.textContent=error.message;}
+  });
+ }
+ const remove=show('button','Delete cost budget',actions);remove.type='button';
+ remove.onclick=()=>{if(confirm('Delete all cost budget lines for '+order.code+'? Planned invoices are kept.'))change(remove,{p_action:'delete_budget'});};
+ reportTable(actions,['Revision','Date','Department','Cost item','Amount','Actions'],lines.map(line=>{
+  const amount=document.createElement('input');amount.type='number';amount.step='0.01';amount.value=line.change_amount;
+  amount.setAttribute('aria-label','Budget amount');amount.readOnly=true;
+  const buttons=document.createElement('div');buttons.className='order-links';
+  const edit=show('button','Edit',buttons), save=show('button','Save',buttons), del=show('button','Delete line',buttons);
+  for(const button of [edit,save,del])button.type='button';
+  save.hidden=true;
+  edit.onclick=()=>{amount.readOnly=false;save.hidden=false;amount.focus();};
+  const key={p_revision:line.revision,p_department:line.department_id,p_category:line.category_code,p_date:line.budget_date};
+  save.onclick=()=>{if(amount.value&&amount.reportValidity())change(save,{...key,p_action:'edit',p_amount:amount.value});};
+  del.onclick=()=>{if(confirm('Delete this budget line?'))change(del,{...key,p_action:'delete_line'});};
+  return [line.revision,line.budget_date,data.departments.find(item=>item.id===line.department_id)?.name??line.department_id,
+   data.categories.find(item=>item.code===line.category_code)?.name??line.category_code,amount,buttons];
+ }));
+}
+async function openOrderAnalysis(order,mode,from,to){
+ const data=workspaceData;
+ currentOrderAnalysis={order,mode,from,to};
+ selectWorkspace('order-analysis');
+ const panel=byId('order-analysis');panel.hidden=false;panel.replaceChildren();
+ const back=show('button','Back to purchase orders',panel);back.onclick=()=>selectWorkspace('orders');
+ show('h2',({budget:'Order budget',comparison:'Budget vs actual',add:'Add Budget'}[mode])+' · '+order.code,panel);
+ const result=show('div','Loading…',panel);
+ try{
+  if(mode==='comparison'){
+   if(!from||!to||from>to)throw new Error('Select a valid reporting period.');
+   const rows=await rpc('financial_rows',{p_from:from,p_to:to});
+   result.replaceChildren();show('p',from+' – '+to,result);
+   renderOrderComparison(result,rows.filter(row=>String(row.order_id)===String(order.id)),data);
+   return;
+  }
+  const budget=await rpc('budget',{p_project:order.project_id});
+  if(mode==='add'){renderOrderPlan(result,order,data,budget);return;}
+  result.replaceChildren();
+  if(canManageBudget)renderBudgetAdmin(result,order,data,budget);
+  const versions=budget.versions.filter(version=>version.approved_at).map(version=>version.revision);
+  const totals=new Map();
+  for(const line of budget.lines){
+   if(String(line.order_id)!==String(order.id)||!versions.includes(line.revision))continue;
+   if(!totals.has(line.category_code))totals.set(line.category_code,new Map());
+   const amounts=totals.get(line.category_code);
+   amounts.set(line.revision,(amounts.get(line.revision)??0)+Number(line.change_amount));
+  }
+  if(!totals.size)show('p','No approved cost budget for this order.',result);
+  if(totals.size)reportTable(result,['Cost item',...versions.map(version=>version===0?'Original':'Revision '+version),'Final approved budget'],[...totals].map(([code,amounts])=>[
+   data.categories.find(category=>category.code===code)?.name??code,...versions.map(version=>reportMoney.format(amounts.get(version)??0)),
+   reportMoney.format([...amounts.values()].reduce((sum,amount)=>sum+amount,0))
+  ]));
+  const drafts=budget.lines.filter(line=>String(line.order_id)===String(order.id)&&!versions.includes(line.revision));
+  if(drafts.length){
+   show('h3','Saved draft costs',result);
+   reportTable(result,['Date','Department','Cost item','Draft amount'],drafts.map(line=>[
+    line.budget_date,data.departments.find(item=>item.id===line.department_id)?.name??line.department_id,
+    data.categories.find(item=>item.code===line.category_code)?.name??line.category_code,reportMoney.format(line.change_amount)
+   ]));
+   const review=show('button','Review draft and approve',result);review.type='button';
+   review.onclick=()=>{
+    selectWorkspace('budget');
+    const picker=byId('budget-project');picker.value=order.id;picker.dispatchEvent(new Event('change'));
+   };
+  }
+  const project=data.projects.find(item=>String(item.id)===String(order.project_id));
+  if(project){
+   const billing=await rpc('billing',{p_customer:project.customer_id});
+   const planned=billing.invoices.filter(invoice=>invoice.planned&&String(invoice.order_id)===String(order.id));
+   if(planned.length){
+    show('h3','Planned invoices',result);
+    reportTable(result,['Invoice','Invoice date','Expected collection','Amount'],planned.map(invoice=>[
+     invoice.number,invoice.invoice_date,invoice.expected_receipt_date,reportMoney.format(invoice.amount)
+    ]));
+   }
+  }
+ }catch(error){result.textContent=error.message;}
+}
+function renderWorkspaceReport(){
+ const view=byId('workspace').dataset.view, mode=reportModes[view], panel=byId('tab-report');
+ panel.replaceChildren();
+ if(!mode){renderCatalogOverview(panel,view);return;}
+ panel.hidden=!workspaceData;
+ if(panel.hidden)return;
+ const data=workspaceData, [title,metric,comparison]=mode;
+ show('h2',title,panel);
+ const year=new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Riyadh'}).format(new Date());
+ const values=reportFilters[view]??={from:year+'-01-01',to:year+'-12-31'};
+ const filters=show('div','',panel);
+ filters.className='report-filters';
+ for(const [key,label,source] of [['department','Department','departments'],['customer','Customer','customers'],['project','Project','projects'],['order','Purchase order','orders'],['from','From'],['to','To']]){
+  const control=show(source?'select':'input','',show('label',label,filters));
+  if(source){
+   show('option','All',control).value='';
+   for(const row of data[source])show('option',row.name??row.code,control).value=row.id;
+  }else control.type='date';
+  control.value=values[key]??'';
+  control.onchange=()=>{values[key]=control.value;refresh();};
+ }
+ const output=show('div','',panel);
+ let requestId=0;
+ async function refresh(){
+  const current=++requestId, filter={...values};
+  output.replaceChildren();
+  if(!filter.from||!filter.to||filter.from>filter.to){show('p','Select a valid date range.',output);return;}
+  show('p','Loading…',output);
+  try{
+   const rows=await rpc('financial_rows',{p_from:filter.from,p_to:filter.to});
+   if(current!==requestId||!output.isConnected)return;
+   const result=rows.filter(row=>[['department','filter_department'],['customer','customer_id'],['project','project_id'],['order','order_id']].every(([key,column])=>!filter[key]||filter[key]===String(row[column])));
+   const detail=result.filter(row=>row.metric===metric);
+   const compared=result.filter(row=>row.metric===comparison);
+   const sum=items=>items.reduce((acc,row)=>acc+Number(row.amount),0);
+   const comparisonTitle=Object.values(reportModes).find(([,key])=>key===comparison)[0];
+   output.replaceChildren();
+   const cards=show('div','',output);cards.className='report-kpis';
+   for(const [label,amount] of [[title,sum(detail)],[comparisonTitle,sum(compared)],['Difference',sum(detail)-sum(compared)]])show('p',label+' · '+reportMoney.format(amount),cards);
+   if(metric==='actual_invoice')show('p','Outstanding balance · '+reportMoney.format(detail.reduce((acc,row)=>acc+Number(row.remaining),0)),cards);
+   const months=[...new Set([...detail,...compared].map(row=>row.event_date.slice(0,7)))].sort();
+   show('h3','Monthly comparison',output);
+   reportTable(output,['Month',title,comparisonTitle,'Difference'],months.map(month=>{
+    const left=sum(detail.filter(row=>row.event_date.startsWith(month))),right=sum(compared.filter(row=>row.event_date.startsWith(month)));
+    return [month,...[left,right,left-right].map(value=>reportMoney.format(value))];
+   }));
+   show('h3','Transactions',output);
+   if(!detail.length)show('p','No records match these filters.',output);
+   const lookup=(list,id)=>list.find(item=>String(item.id)===String(id));
+   reportTable(output,['Date','Project','Order','Department','Reference','Cost category','Details','Amount'],detail.map(row=>[
+    row.event_date,lookup(data.projects,row.project_id)?.name??'',lookup(data.orders,row.order_id)?.code??'',
+    lookup(data.departments,row.filter_department)?.name??'',row.reference,
+    data.categories.find(item=>item.code===row.category)?.name??'',row.detail,reportMoney.format(row.amount)
+   ]));
+  }catch(error){if(current===requestId&&output.isConnected){output.replaceChildren();show('p',error.message,output);}}
+ }
+ refresh();
+}
+async function restoreSession(){
+ const saved=sessionStorage.getItem(sessionKey);
+ if(!saved)return;
+ try{
+  session={...authConfig,...JSON.parse(saved)};
+  await openSession();
+ }catch(error){
+  if(!login.hidden){session=null;sessionStorage.removeItem(sessionKey);}
+  status.textContent=error.message;
+ }
+}
+function addSelectSearch(){
+ for(const select of document.querySelectorAll('select:not([multiple])')){
+  if(select.dataset.searchable)continue;
+  select.dataset.searchable='true';
+  const wrapper=document.createElement('div');wrapper.className='searchable-picker';
+  select.after(wrapper);
+  const input=show('input','',wrapper);input.type='text';input.autocomplete='off';
+  const menu=show('div','',wrapper);menu.className='picker-options';menu.hidden=true;
+  input.setAttribute('aria-label',select.labels?.[0]?.firstChild?.textContent?.trim()||'Search options');
+  input.setAttribute('aria-expanded','false');
+  select.classList.add('picker-native');select.tabIndex=-1;
+  function sync(){
+   input.disabled=select.disabled;
+   input.value=select.selectedOptions[0]?.textContent??'';
+   menu.hidden=true;input.setAttribute('aria-expanded','false');
+  }
+  function render(term){
+   menu.replaceChildren();menu.hidden=false;input.setAttribute('aria-expanded','true');
+   for(const option of select.options){
+    if(option.disabled||option.hidden||!option.textContent.toLowerCase().includes(term))continue;
+    const button=show('button',option.textContent,menu);button.type='button';
+    button.onclick=()=>{
+     select.value=option.value;
+     select.dispatchEvent(new Event('change',{bubbles:true}));sync();
+     input.focus();sync();
+    };
+   }
+   if(!menu.children.length)show('p','No matching options',menu);
+  }
+  input.onfocus=()=>{input.select();render('');};
+  input.onclick=()=>{if(menu.hidden)render('');};
+  input.oninput=()=>render(input.value.trim().toLowerCase());
+  input.onkeydown=event=>{
+   if(event.key==='Escape'&&!menu.hidden){event.preventDefault();event.stopPropagation();sync();}
+   if(event.key==='ArrowDown'){event.preventDefault();if(menu.hidden)render('');menu.querySelector('button')?.focus();}
+   if(event.key==='Enter'&&!menu.hidden){event.preventDefault();menu.querySelector('button')?.click();}
+  };
+  wrapper.onfocusout=event=>{if(!wrapper.contains(event.relatedTarget))sync();};
+  select.addEventListener('change',sync);
+  select.addEventListener('invalid',()=>input.focus());
+  select.form?.addEventListener('reset',()=>queueMicrotask(sync));
+  new MutationObserver(sync).observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']});
+  sync();
+ }
+}
+new MutationObserver(addSelectSearch).observe(document.body,{childList:true,subtree:true});
+addSelectSearch();
+const refreshButton=byId('refresh-workspace');
+refreshButton.onclick=()=>run(refreshButton,async()=>{
+ const active=currentOrderAnalysis;
+ const view=byId('workspace').dataset.view;
+ if(view==='members')await openMembers();
+ else {
+  await openCatalog();
+  if(active&&active.mode!=='add'&&byId('workspace').dataset.view==='order-analysis'){
+   const order=workspaceData.orders.find(item=>item.id===active.order.id);
+   if(order)await openOrderAnalysis(order,active.mode,active.from,active.to);
+  }
+ }
+ status.textContent='Data refreshed.';
+});
+run(login.querySelector('button'),restoreSession);
+</script></html>
