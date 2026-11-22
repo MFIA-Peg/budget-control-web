@@ -29,19 +29,23 @@ main[data-view="orders"],main[data-view="order-analysis"]{max-width:1600px}main[
 .catalog-row-name:has(.order-row-actions){display:block}.order-row-actions{margin-top:6px;flex-wrap:nowrap;white-space:nowrap}.plan-row{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .budget-plan-actions{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;background:white;padding:8px 0}.budget-plan-actions p{margin:0}.plan-row,.plan-column-headings{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr)) auto;gap:8px;align-items:center}.plan-row input,.plan-row select{width:100%;min-width:0}.plan-column-headings{font-weight:600}.plan-row button{justify-self:start}
 .dashboard-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0}.dashboard-kpis>div{background:#eef4fc;padding:10px;border-radius:6px;overflow-wrap:anywhere}.dashboard-kpis span,.dashboard-kpis strong{display:block}.dashboard-kpis span{font-size:.8rem}
-main[data-view="departments"]{max-width:1480px}
-main[data-view="departments"] .catalog-page-heading{margin-bottom:12px}
-.department-overview .report-table{border:1px solid #dce5ef;border-radius:10px}
-.department-overview table{margin:0;min-width:1100px;font-size:13px;font-variant-numeric:tabular-nums}
-.department-overview th,.department-overview td{padding:12px 9px;vertical-align:middle}
-.department-overview th{background:#eef4fc;color:#23415f;white-space:normal}
+main:is([data-view="departments"],[data-view="customers"]){max-width:1480px}
+main:is([data-view="departments"],[data-view="customers"]) .catalog-page-heading{margin-bottom:12px}
+:is(.department-overview,.customer-overview) .report-table{border:1px solid #dce5ef;border-radius:10px}
+:is(.department-overview,.customer-overview) table{margin:0;min-width:1100px;font-size:13px;font-variant-numeric:tabular-nums}
+:is(.department-overview,.customer-overview) th,:is(.department-overview,.customer-overview) td{padding:12px 9px;vertical-align:middle}
+:is(.department-overview,.customer-overview) th{background:#eef4fc;color:#23415f;white-space:normal}
 .department-overview th:nth-child(-n+2),.department-overview td:nth-child(-n+2){text-align:left;min-width:135px}
 .department-overview th:nth-child(n+3):nth-child(-n+5),.department-overview td:nth-child(n+3):nth-child(-n+5),.department-overview th:last-child,.department-overview td:last-child{text-align:center}
 .department-overview th:nth-child(n+6):not(:last-child),.department-overview td:nth-child(n+6):not(:last-child){text-align:right}
 .department-overview td:nth-child(n+3){white-space:nowrap}
-.department-overview tbody tr:first-child{font-weight:700;background:#e9f2ff}
-.department-overview tbody tr:nth-child(even){background:#f8fafc}
-.department-overview td:last-child button{margin:0;padding:6px 13px;min-width:65px}
+:is(.department-overview,.customer-overview) tbody tr:first-child{font-weight:700;background:#e9f2ff}
+:is(.department-overview,.customer-overview) tbody tr:nth-child(even){background:#f8fafc}
+:is(.department-overview,.customer-overview) td:last-child button{margin:0;padding:6px 13px;min-width:65px}
+.customer-overview :is(th,td):first-child{text-align:start;min-width:240px;max-width:350px;overflow-wrap:anywhere}
+.customer-overview :is(th,td):is(:nth-child(n+2):nth-child(-n+4),:last-child){text-align:center}
+.customer-overview :is(th,td):nth-child(n+5):not(:last-child){text-align:right}
+.customer-overview td:not(:first-child){white-space:nowrap}
 </style>
 <header><h1>Budget Controlling</h1><div class="finance-header"><span>Finance sign-in</span><button id="refresh-workspace" type="button" hidden>Refresh</button><button id="logout" type="button" hidden>Sign out</button></div></header>
 <nav id="work-nav" aria-label="Workspaces" hidden><button type="button" data-view="dashboard" hidden>Dashboard</button><button type="button" data-view="customers" hidden>Customers</button><button type="button" data-view="departments" hidden>Departments</button><button type="button" data-view="projects" hidden>Projects</button><button type="button" data-view="orders" hidden>Open customer purchase orders</button><button type="button" data-view="closed-orders" hidden>Closed purchase order report</button><button type="button" data-view="budget" hidden>Budget</button><button type="button" data-view="planned-invoices" hidden>Planned invoices</button><button type="button" data-view="actual-invoices" hidden>Actual invoices</button><button type="button" data-view="planned-receipts" hidden>Expected collections</button><button type="button" data-view="actual-receipts" hidden>Actual collections</button><button type="button" data-view="cash" hidden>Cash flow</button><button type="button" data-view="costs" hidden>Actual costs</button><button type="button" data-view="members" hidden>System administration</button></nav>
@@ -1201,7 +1205,9 @@ function renderCatalogOverview(panel,view){
  const cards=show('div','',panel);cards.className='dashboard-kpis';
  const chart=show('div','',panel);
  const result=show('div','',panel), note=show('p','',panel);
+ const separateActions=view==='departments'||view==='customers';
  if(view==='departments')result.classList.add('department-overview');
+ if(view==='customers')result.classList.add('customer-overview');
  const metrics=['budget','cost','planned_invoice','actual_invoice','planned_receipt','actual_receipt'];
  const labels=['Approved budget','Actual costs','Planned invoices','Actual invoices','Expected collections','Actual collections'];
  function totals(entries){
@@ -1249,7 +1255,7 @@ function renderCatalogOverview(panel,view){
    if(!editor)return [name,...rest,...totals(grouped.get(String(record.id))??[])];
    const title=document.createElement('div');title.className='catalog-row-name';title.append(name);
    const open=show('button','Open',title);open.type='button';open.onclick=()=>editor(record);
-   if(view==='departments')return [name,...rest,...totals(grouped.get(String(record.id))??[]),open];
+   if(separateActions)return [name,...rest,...totals(grouped.get(String(record.id))??[]),open];
    if(view==='orders'){
     const controls=document.createElement('div');controls.className='order-links order-row-actions';
     for(const [label,mode] of [['Budget','budget'],['Budget vs actual','comparison']]){
@@ -1280,8 +1286,8 @@ function renderCatalogOverview(panel,view){
    const card=show('div','',cards);show('span',cardLabels[index],card);show('strong',value,card);
   });
   const summary=['Total',...headers.slice(1).map(()=>''),...totals(matching)];
-  if(view==='orders'||view==='departments')summary.push('');
-  reportTable(result,[...headers,...labels,...(view==='orders'?['Order status']:view==='departments'?['Actions']:[])],[summary,...rows]);
+  if(view==='orders'||separateActions)summary.push('');
+  reportTable(result,[...headers,...labels,...(view==='orders'?['Order status']:separateActions?['Actions']:[])],[summary,...rows]);
   if(view==='orders')renderOrderComparison(chart,matching,d);
   else if(matching.length){
    const groupedMonths=new Map();
