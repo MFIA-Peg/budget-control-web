@@ -323,6 +323,7 @@ async function openCatalog() {
   show('h3',title,dialog);
   const close=show('button','Close',dialog);close.type='button';close.onclick=()=>dialog.close();
   const form=show('form','',dialog);
+  const customerDates=kind==='customer'?show('div','',dialog):null;
   const orderActions=show('div','',dialog);
   const attachments=show('div','',dialog);
   const inputs={};
@@ -395,6 +396,19 @@ async function openCatalog() {
      };
      setEditing(!row);
      editOrder.onclick=()=>setEditing(true);
+    }
+    if(customerDates){
+     customerDates.replaceChildren();
+     customerDates.hidden=!row;
+     if(row){
+      const projectIds=new Set(data.projects.filter(project=>project.customer_id===row.id).map(project=>project.id));
+      const firstOrder=firstDatedOrder(data.orders.filter(order=>projectIds.has(order.project_id)));
+      const dates=show('dl','',customerDates);
+      show('dt','Start date',dates);
+      show('dd',firstOrder?.start_date??'—',dates);
+      show('dt','End date',dates);
+      show('dd',firstOrder?.end_date??'—',dates);
+     }
     }
     updateCustomer();
     dialog.showModal();
@@ -1159,11 +1173,14 @@ function reportTable(parent,headers,rows){
  headers.forEach(label=>show('th',label,head).scope='col');
  rows.forEach(values=>{const row=body.insertRow();values.forEach(value=>{const cell=row.insertCell();if(value instanceof Node)cell.append(value);else cell.textContent=value;});});
 }
+function firstDatedOrder(orders){
+ return orders.filter(order=>order.start_date).sort((a,b)=>a.start_date.localeCompare(b.start_date)||a.id-b.id)[0];
+}
 function renderCatalogOverview(panel,view){
  const d=workspaceData;
  const ordersFor=projectIds=>d.orders.filter(order=>projectIds.includes(order.project_id));
  const orderSummary=orders=>{
-  const first=orders.filter(order=>order.start_date).sort((a,b)=>a.start_date.localeCompare(b.start_date)||a.id-b.id)[0];
+  const first=firstDatedOrder(orders);
   const amounts=orders.filter(order=>order.contract_value!=null);
   return [first?.start_date??'—',first?.end_date??'—',amounts.length?reportMoney.format(amounts.reduce((sum,order)=>sum+Number(order.contract_value),0)):'—'];
  };
