@@ -1673,9 +1673,55 @@ async function openOrderAnalysis(order,mode,from,to){
    const planned=billing.invoices.filter(invoice=>invoice.planned&&String(invoice.order_id)===String(order.id));
    if(planned.length){
     show('h3','Planned invoices',result);
-    reportTable(result,['Invoice','Invoice date','Expected collection','Amount'],planned.map(invoice=>[
-     invoice.number,invoice.invoice_date,invoice.expected_receipt_date,reportMoney.format(invoice.amount)
-    ]));
+    reportTable(result,['Invoice','Invoice date','Expected collection','Amount','Actions'],planned.map(invoice=>{
+     const actions=document.createElement('div');
+     actions.className='actions';
+     const edit=show('button','Edit',actions);edit.type='button';
+     const remove=show('button','Delete',actions);remove.type='button';
+     const args={p_order:order.id,p_invoice:invoice.id};
+     edit.onclick=()=>{
+      const dialog=show('dialog','',result);
+      dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+      show('h3','Edit planned invoice',dialog);
+      const form=show('form','',dialog);
+      const fields={};
+      for(const [key,label,type,value] of [
+       ['p_number','Invoice number','text',invoice.number],
+       ['p_date','Invoice date','date',invoice.invoice_date],
+       ['p_days','Payment days','number',invoice.payment_days],
+       ['p_amount','Amount','number',invoice.amount]
+      ]){
+       const input=show('input','',show('label',label,form));
+       input.type=type;input.value=value;input.required=true;
+       if(key==='p_days')input.min='0';
+       if(key==='p_amount'){input.min='0.01';input.step='0.01';}
+       fields[key]=input;
+      }
+      const save=show('button','Save',form);
+      const cancel=show('button','Cancel',form);cancel.type='button';cancel.onclick=()=>dialog.close();
+      const feedback=show('p','',form);feedback.setAttribute('role','alert');
+      form.onsubmit=event=>{
+       event.preventDefault();
+       run(save,async()=>{
+        const values=Object.fromEntries(Object.entries(fields).map(([key,input])=>[key,input.value.trim()]));
+        feedback.textContent='';
+        try{await rpc('manage_planned_invoice',{...args,...values,p_action:'edit'});}
+        catch(error){feedback.textContent=error.message;return;}
+        dialog.close();
+        if(result.isConnected)await openOrderAnalysis(order,mode,from,to);
+       });
+      };
+      dialog.showModal();
+     };
+     remove.onclick=()=>{
+      if(!confirm('Delete planned invoice '+invoice.number+'?'))return;
+      run(remove,async()=>{
+       await rpc('manage_planned_invoice',{...args,p_action:'delete',p_number:null,p_date:null,p_days:null,p_amount:null});
+       if(result.isConnected)await openOrderAnalysis(order,mode,from,to);
+      });
+     };
+     return [invoice.number,invoice.invoice_date,invoice.expected_receipt_date,reportMoney.format(invoice.amount),actions];
+    }));
    }
   }
  }catch(error){result.textContent=error.message;}
