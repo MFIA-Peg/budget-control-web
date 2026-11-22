@@ -717,6 +717,19 @@ byId('template').onclick=()=>run(byId('template'),async ()=>{
  const link=document.createElement('a');link.href=url;link.download='Actual_Cost_Import.xlsx';link.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
+function findDepartment(departments,value){
+ const normalize=value=>String(value??'').trim().replace(/\s+/g,' ').toLowerCase();
+ const key=normalize(value);
+ if(!key)return undefined;
+ const matches=departments.filter(item=>[item.code,item.name,item.other_name].some(name=>normalize(name)===key));
+ if(matches.length)return matches.length===1?matches[0]:undefined;
+ const compound=/^(.+?)\s*\[([^\]]+)\]$/.exec(key);
+ if(compound){
+  const primary=findDepartment(departments,compound[1]), alias=findDepartment(departments,compound[2]);
+  return primary&&alias&&primary.id===alias.id?primary:undefined;
+ }
+ return departments.find(item=>String(item.id)===key);
+}
 function parseProjectStatement(source){
  const template=document.createElement('template');
  template.innerHTML=source;
@@ -775,7 +788,7 @@ function reviewProjectStatement(statement,file,order){
   show('option','Select department',department).value='';
   for(const item of data.departments){
    const option=show('option',item.name,department);option.value=item.id;
-   if(item.name.trim().toLowerCase()===entry.department.toLowerCase())department.value=item.id;
+   if(findDepartment(data.departments,entry.department)?.id===item.id)department.value=item.id;
   }
   const category=show('select','',show('label','Cost category',section));
   show('option','Select cost category',category).value='';
@@ -814,6 +827,8 @@ async function parse(file) {
    item[key]=cell.value instanceof Date ? cell.value.toISOString().slice(0,10) : cell.text.trim();
   }
   if (!columns.some(([key])=>item[key])) return;
+  const department=findDepartment(workspaceData.departments,item.department_id);
+  if(department)item.department_id=String(department.id);
   if (columns.some(([key])=>key!=='subcategory'&&!item[key]) || !/^\d+$/.test(item.department_id) || !/^\d{4}-\d{2}-\d{2}$/.test(item.transaction_date) || !/^-?\d+(\.\d{1,2})?$/.test(item.amount)) throw new Error('Row '+number+' has missing or invalid values.');
   rows.push(item);
  });
@@ -1106,7 +1121,7 @@ function customerDepartmentPicker(form,departments,selection,title){
   summary.textContent=title+' ('+selection.size+' selected)';
   const query=search.value.trim().toLowerCase();
   list.replaceChildren();
-  for(const department of departments.filter(item=>item.name.toLowerCase().includes(query))){
+  for(const department of departments.filter(item=>[item.name,item.other_name,item.code].some(name=>name?.toLowerCase().includes(query)))){
    const label=show('label','',list), check=show('input','',label);check.type='checkbox';
    label.append(' '+department.name);
    check.disabled=locked;
@@ -1137,7 +1152,7 @@ function renderCatalogOverview(panel,view){
  };
  const configs={
   customers:()=>[d.customers,['Customer','Projects','Start date','End date','Order value'],row=>{const projects=d.projects.filter(project=>project.customer_id===row.id);return [row.name,projects.length,...orderSummary(ordersFor(projects.map(project=>project.id)))];}],
-  departments:()=>[d.departments,['Department','Customers','Projects'],row=>[row.name,d.department_customers.filter(link=>link.department_id===row.id).length,d.project_departments.filter(link=>link.department_id===row.id).length]],
+  departments:()=>[d.departments,['Department','Other name','Code','Customers','Projects'],row=>[row.name,row.other_name??'',row.code??'',d.department_customers.filter(link=>link.department_id===row.id).length,d.project_departments.filter(link=>link.department_id===row.id).length]],
   projects:()=>[d.projects,['Project','Status','Orders','Start date','End date','Order value'],row=>{const orders=ordersFor([row.id]);return [row.name,row.status,orders.length,...orderSummary(orders)];}],
   orders:()=>[d.orders.filter(order=>!order.closed_at),['Code','Order number','Project'],row=>[row.code,row.order_number??'—',d.projects.find(project=>project.id===row.project_id)?.name??'']],
   'closed-orders':()=>[d.orders.filter(order=>order.closed_at),['Purchase order','Project'],row=>[row.code,d.projects.find(project=>project.id===row.project_id)?.name??'']],
@@ -1430,7 +1445,7 @@ function renderOrderPlan(panel,order,data,budget){
      const fail=()=>{throw new Error(definition.name+' · Excel row '+n+': check department, amount and dates.');};
      const [department,second,third,fourth,fifth,sixth]=fields;
      const key=String(department??'').trim().toLowerCase();
-     const linked=departments.find(item=>String(item.id)===key||item.name.toLowerCase()===key);
+     const linked=findDepartment(departments,key);
      const start=dateText(definition.special?fifth:second);
      const end=definition.special?dateText(sixth):start;
      const base=Number(third), factor=Number(fourth);
@@ -1485,6 +1500,10 @@ function renderOrderPlan(panel,order,data,budget){
        if(!validator.value)throw new Error(name+' · Excel row '+n+': invalid '+fields[index][1]+' ('+raw+').');
       }
       if(!raw||!Array.isArray(type))return [key,raw];
+      if(key==='department_id'){
+       const department=findDepartment(departments,raw);
+       if(department)return [key,String(department.id)];
+      }
       const normalize=value=>String(value).trim().toLowerCase();
       const match=type.find(([code])=>normalize(code)===normalize(raw))??type.find(([,label])=>normalize(label)===normalize(raw));
       if(!match)throw new Error(name+' row '+n+': unknown '+fields[index][1]+' "'+raw+'". Use a value from the template dropdown.');
