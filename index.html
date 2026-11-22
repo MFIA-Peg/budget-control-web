@@ -60,6 +60,9 @@ main[data-view="project-actuals"]{max-width:1480px}
 main[data-view="project-actuals"]>section[data-workspace]:not([data-workspace~="project-actuals"]){display:none}
 main[data-view="project-actuals"] th,main[data-view="project-actuals"] td{padding:9px;vertical-align:middle}
 main[data-view="project-actuals"] [aria-pressed="false"]{background:#e7eff8;color:#19324b}
+.order-pies{margin-top:16px}
+.order-pies article{min-width:0;padding:14px;border:1px solid #dce5ef;border-radius:10px}
+.order-pies .dashboard-donut::after{display:none}
 </style>
 <header><h1>Budget Controlling</h1><div class="finance-header"><span>Finance sign-in</span><button id="refresh-workspace" type="button" hidden>Refresh</button><button id="logout" type="button" hidden>Sign out</button></div></header>
 <nav id="work-nav" aria-label="Workspaces" hidden><button type="button" data-view="dashboard" hidden>Dashboard</button><button type="button" data-view="customers" hidden>Customers</button><button type="button" data-view="departments" hidden>Departments</button><button type="button" data-view="projects" hidden>Projects</button><button type="button" data-view="orders" hidden>Open customer purchase orders</button><button type="button" data-view="closed-orders" hidden>Closed purchase order report</button><button type="button" data-view="project-plans" hidden>Budget &amp; Planned Billing</button><button type="button" data-view="project-actuals" hidden>Actual Costs, Billing &amp; Collections</button><button type="button" data-view="planned-receipts" hidden>Expected collections</button><button type="button" data-view="cash" hidden>Cash flow</button><button type="button" data-view="members" hidden>System administration</button></nav>
@@ -1340,7 +1343,23 @@ function renderCatalogOverview(panel,view){
   const summary=['Total',...headers.slice(1).map(()=>''),...totals(matching)];
   if(view==='orders'||separateActions)summary.push('');
   reportTable(result,[...headers,...labels,...(view==='orders'?['Order status']:separateActions?['Actions']:[])],[summary,...rows]);
-  if(view==='orders')renderOrderComparison(chart,matching,d);
+  if(view==='orders'){
+   renderOrderComparison(chart,matching,d);
+   const pies=show('div','',chart);pies.className='dashboard-comparisons order-pies';
+   for(const [title,plannedMetric,actualMetric] of [
+    ['Collections · planned vs actual','planned_receipt','actual_receipt'],
+    ['Billing · planned vs actual','planned_invoice','actual_invoice']
+   ]){
+    const sum=metric=>matching.filter(row=>row.metric===metric).reduce((total,row)=>total+Number(row.amount),0);
+    const planned=sum(plannedMetric), actual=sum(actualMetric);
+    donut(pies,title,[['Planned',planned],['Actual',actual]]);
+    const card=pies.lastElementChild;
+    if(!planned&&!actual)show('p','No amounts in this period.',card);
+    reportTable(card,['Planned total','Actual total','Variance (actual − planned)'],[[
+     reportMoney.format(planned),reportMoney.format(actual),reportMoney.format(actual-planned)
+    ]]);
+   }
+  }
   else if(matching.length){
    const groupedMonths=new Map();
    for(const entry of matching){
@@ -1381,17 +1400,22 @@ function renderOrderComparison(panel,rows,data){
   const item=groups.get(row.category)??{budget:0,cost:0};
   item[row.metric]+=Number(row.amount);groups.set(row.category,item);
  }
- show('h3','Cost items · approved budget vs actual',panel);
- if(!groups.size){show('p','No budget or cost entries in this period.',panel);return;}
- const max=Math.max(1,...[...groups.values()].flatMap(item=>[Math.abs(item.budget),Math.abs(item.cost)]));
- reportTable(panel,['Cost item','Approved budget','Actual cost','Budget less actual'],[...groups].map(([code,item])=>{
-  const bar=(value,color)=>{
-   const wrapper=document.createElement('div');wrapper.append(reportMoney.format(value));
-   const meter=show('div','',wrapper);meter.style.cssText='height:6px;border-radius:3px;background:'+color+';width:'+Math.abs(value)/max*100+'%';
-   return wrapper;
-  };
-  return [data.categories.find(category=>category.code===code)?.name??code,bar(item.budget,'#2563eb'),bar(item.cost,'#0f766e'),reportMoney.format(item.budget-item.cost)];
- }));
+ const title='Cost items · planned vs actual and variance';
+ if(!groups.size){
+  show('h3',title,panel);
+  show('p','No budget or cost entries in this period.',panel);
+  return;
+ }
+ const items=[...groups].map(([code,item])=>({
+  ...item,
+  name:data.categories.find(category=>category.code===code)?.name??code??'Uncategorized',
+  variance:item.cost-item.budget
+ })).sort((a,b)=>a.name.localeCompare(b.name));
+ const series=[['budget','Planned cost'],['cost','Actual cost'],['variance','Variance (actual − planned)']];
+ monthlyChart(panel,title,items,series,false,null,true);
+ reportTable(panel,['Planned cost total','Actual cost total','Total variance (actual − planned)'],[
+  series.map(([key])=>reportMoney.format(items.reduce((sum,item)=>sum+item[key],0)))
+ ]);
 }
 
 function renderOrderPlan(panel,order,data,budget){
