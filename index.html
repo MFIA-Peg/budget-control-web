@@ -312,7 +312,7 @@ async function openCatalog() {
  const groups=[
   ['department','Departments','departments',[['name','Name']]],
   ['customer','Customers','customers',[['name','Name'],['phone','Contact number'],['approved_email','Approved email'],['relationship_started_on','Relationship start date']]],
-  ['project','Projects','projects',[['name','Name'],['department_id','Main department','departments'],['customer_id','Customer','customers'],['status','Status']]],
+  ['project','Projects','projects',[['name','Name'],['customer_id','Customer','customers'],['department_id','Main department','departments'],['status','Status']]],
   ['order','Open customer purchase orders','orders',[['order_number','Purchase order number'],['code','Purchase order code'],['project_id','Project','projects'],['department_id','Primary execution department','departments'],['start_date','Start date'],['end_date','End date'],['contract_value','Value excluding VAT (SAR)']]],
  ];
  for(const [kind,title,collection,fields] of groups){
@@ -345,6 +345,21 @@ async function openCatalog() {
     }
    }
   }
+  function updateProjectDepartments(){
+   const picker=inputs.department_id;
+   const previous=picker.value;
+   const customerId=inputs.customer_id.value;
+   const linkedIds=new Set(data.department_customers
+    .filter(link=>String(link.customer_id)===customerId)
+    .map(link=>String(link.department_id)));
+   picker.replaceChildren();
+   const departments=data.departments.filter(department=>linkedIds.has(String(department.id)));
+   const prompt=!customerId?'Select a customer first':departments.length?'Select main department':'Link this customer to a department in Customers first';
+   show('option',prompt,picker).value='';
+   for(const department of departments)show('option',department.name,picker).value=department.id;
+   if(linkedIds.has(previous))picker.value=previous;
+  }
+  if(kind==='project')inputs.customer_id.addEventListener('change',updateProjectDepartments);
   const customer=kind==='order'?show('output','',show('label','Customer',form)):null;
   if(customer)inputs.project_id.parentElement.after(customer.parentElement);
   function updateCustomer(){
@@ -372,6 +387,10 @@ async function openCatalog() {
      for(const option of [...picker.options].slice(1))option.remove();
      for(const project of data.projects.filter(project=>['planned','active','on_hold'].includes(project.status)||project.id===row?.project_id))
       show('option',project.name,picker).value=project.id;
+    }
+    if(kind==='project'){
+     inputs.customer_id.value=row?.customer_id??'';
+     updateProjectDepartments();
     }
     if(row){
      editing=row.id;
@@ -439,7 +458,12 @@ async function openCatalog() {
     if(kind==='order_department')record.project_id=data.orders.find(row=>String(row.id)===record.order_id)?.project_id;
      if(departmentPicker)record[kind==='order'?'secondary_department_ids':'department_ids']=[...selectedDepartments];
     try{await rpc('save_catalog',{p_kind:kind,p_data:record});}
-    catch(error){saveFeedback.textContent=error.message;return;}
+    catch(error){
+     saveFeedback.textContent=kind==='project'&&error.message.includes('projects_department_id_customer_id_fkey')
+      ?'Link this customer to the selected main department in Customers, then refresh and try again.'
+      :error.message;
+     return;
+    }
     dialog.close();
     await openCatalog();
     status.textContent='Record saved.';
