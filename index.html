@@ -318,7 +318,7 @@ async function openCatalog() {
   ['department','Departments','departments',[['name','Name']]],
   ['customer','Customers','customers',[['name','Name'],['phone','Contact number'],['approved_email','Approved email'],['relationship_started_on','Relationship start date']]],
   ['project','Projects','projects',[['name','Name'],['status','Status']]],
-  ['order','Open customer purchase orders','orders',[['order_number','Purchase order number'],['code','Purchase order code'],['project_id','Project','projects'],['customer_id','Customer','customers'],['department_id','Primary execution department','departments'],['start_date','Start date'],['end_date','End date'],['contract_value','Value excluding VAT (SAR)']]],
+  ['order','Open customer purchase orders','orders',[['order_number','Purchase order number'],['code','Purchase order code'],['project_id','Project','projects'],['customer_id','Customer','customers'],['department_id','Primary execution department','departments'],['start_date','Start date'],['end_date','End date'],['contract_value','Value excluding VAT (SAR)'],['billing_type','Billing type']]],
  ];
  for(const [kind,title,collection,fields] of groups){
   const area=show('article','',target);
@@ -335,11 +335,12 @@ async function openCatalog() {
   for(const [key,label,source] of fields){
    const wrapper=show('label',label,form);
    const dateField=key==='start_date'||key==='end_date';
-   const input=show(source||key==='status'?'select':'input','',wrapper);
+   const input=show(source||['status','billing_type'].includes(key)?'select':'input','',wrapper);
    if(dateField||key==='relationship_started_on')input.type='date';
    if(key==='phone')input.type='tel';
    if(key==='contract_value'){input.type='number';input.min='0';input.step='0.01';}
    if(key==='approved_email')input.type='email';
+   if(key==='billing_type')for(const [value,name] of [['milestones','Milestones'],['monthly_rental','Monthly rental']])show('option',name,input).value=value;
    if(key==='status')for(const [value,name] of Object.entries(projectStatuses))show('option',name,input).value=value;
    input.required=(!dateField||kind==='order')&&!['phone','approved_email','relationship_started_on'].includes(key);inputs[key]=input;
    if(source){
@@ -1412,12 +1413,80 @@ function renderOrderPlan(panel,order,data,budget){
     }
     control.value=values[key]??'';
    }
-   const remove=show('button','Remove',row);remove.type='button';remove.onclick=()=>row.remove();
+   const rowActions=show('div','',row);rowActions.className='actions';
+   const repeat=show('button','Duplicate',rowActions);repeat.type='button';
+   repeat.onclick=()=>{
+    const values=Object.fromEntries([...row.querySelectorAll('[data-key]')].map(input=>[input.dataset.key,input.type==='date'?'':input.value]));
+    const copy=addRow(values);
+    copy.dataset.generated='true';
+    row.after(copy);
+    copy.querySelector('input[type="date"]')?.focus();
+   };
+   const remove=show('button','Remove',rowActions);remove.type='button';remove.onclick=()=>row.remove();
+   return row;
   }
   add.onclick=()=>addRow();
   addRow();
   return {name,headers,fields,rows,addRow};
  });
+ if(order.billing_type==='monthly_rental'){
+  const schedule=show('details','',form);
+  form.insertBefore(schedule,form.querySelector('section'));
+  show('summary','Generate monthly rental and costs',schedule);
+  const monthDates=[];
+  if(order.start_date&&order.end_date){
+   const date=new Date(order.start_date.slice(0,7)+'-01T00:00:00Z');
+   while(date.toISOString().slice(0,10)<=order.end_date&&monthDates.length<=600){
+    date.setUTCMonth(date.getUTCMonth()+1);
+    monthDates.push([new Date(date.getTime()-86400000).toISOString().slice(0,10),order.end_date].sort()[0]);
+   }
+  }
+  const helper=show('p',monthDates.length&&monthDates.length<=600?monthDates.length+' monthly periods. The first and last months are charged in full.':'Enter valid order dates covering up to 600 months.',schedule);
+  helper.setAttribute('role','status');
+  const control=(label,type,value)=>{
+   const input=show('input','',show('label',label,schedule));input.type=type;input.value=value;return input;
+  };
+  const monthlyRent=control('Monthly rent','number',monthDates.length&&order.contract_value? (Number(order.contract_value)/monthDates.length).toFixed(2):'');monthlyRent.step='0.01';
+  const days=control('Payment days','number','30');days.step='1';
+  const invoicePrefix=control('Invoice prefix','text',order.code);
+  const expense=control('Monthly cost for selected item','number','');expense.step='0.01';
+  const selector=(label,options)=>{
+   const select=show('select','',show('label',label,schedule));
+   for(const [value,name] of options)show('option',name,select).value=value;
+   return select;
+  };
+  const dept=selector('Execution department',departments.map(item=>[item.id,item.name]));
+  const category=selector('Cost category',data.categories.map(item=>[item.code,item.name]));
+  const append=(editor,records)=>{
+   for(const row of [...editor.rows.children]){
+    if(!row.dataset.generated&&[...row.querySelectorAll('[data-key]')].every(input=>!input.value))row.remove();
+   }
+   records.forEach(record=>editor.addRow(record).dataset.generated='true');
+  };
+  const button=show('button','Generate monthly invoices',schedule);button.type='button';
+  button.onclick=()=>{
+   const rent=Number(monthlyRent.value),terms=Number(days.value),prefix=invoicePrefix.value.trim();
+   if(!monthDates.length||monthDates.length>600||!Number.isFinite(rent)||rent<=0||!days.value||!Number.isInteger(terms)||terms<0||terms>36500||!prefix){helper.textContent='Enter valid dates, monthly rent, invoice prefix and payment days.';return;}
+   const existing=new Set([...editors[1].rows.querySelectorAll('[data-key="number"]')].map(input=>input.value.trim()));
+   const records=monthDates.map(date=>{
+    const receipt=new Date(date+'T00:00:00Z');
+    receipt.setUTCDate(receipt.getUTCDate()+terms);
+    return {number:prefix+'-'+date.slice(0,7),invoice_date:date,receipt_date:receipt.toISOString().slice(0,10),amount:rent.toFixed(2)};
+   });
+   if(records.some(record=>existing.has(record.number))){helper.textContent='These invoice numbers already exist in the form.';return;}
+   append(editors[1],records);
+   helper.textContent=records.length+' invoices generated. Review and save.';
+  };
+  const generateCosts=show('button','Generate monthly costs',schedule);generateCosts.type='button';
+  generateCosts.onclick=()=>{
+   const amount=Number(expense.value);
+   if(!monthDates.length||monthDates.length>600||!dept.value||!category.value||!Number.isFinite(amount)||amount<=0){helper.textContent='Enter valid dates, department, cost category and monthly cost.';return;}
+   const existing=new Set([...editors[0].rows.children].map(row=>['department_id','category_code','budget_date'].map(key=>row.querySelector('[data-key="'+key+'"]').value).join('|')));
+   if(monthDates.some(date=>existing.has([dept.value,category.value,date].join('|')))){helper.textContent='A cost line already exists for this department, category and date.';return;}
+   append(editors[0],monthDates.map(date=>({department_id:dept.value,category_code:category.value,budget_date:date,change_amount:amount.toFixed(2)})));
+   helper.textContent=monthDates.length+' cost lines generated. Add one-off costs or another monthly category before saving.';
+  };
+ }
  const workbook=show('input','',show('label','Load Excel workbook into form',form));workbook.type='file';workbook.accept='.xlsx';
 
  const template=show('button','Download Excel template',form);template.type='button';
@@ -1580,7 +1649,7 @@ function renderOrderPlan(panel,order,data,budget){
    try{
     const [costs,invoices]=editors.map(editor=>[...editor.rows.children].flatMap((row,index)=>{
      const record=Object.fromEntries([...row.querySelectorAll('[data-key]')].map(control=>[control.dataset.key,control.value.trim()]));
-     if(!Object.values(record).some(Boolean))return [];
+     if(!row.dataset.generated&&!Object.values(record).some(Boolean))return [];
      const missing=editor.fields.filter(([key])=>!record[key]).map(([,label])=>label);
      const rowLabel=row.dataset.excelRow?'Excel row '+row.dataset.excelRow:'row '+(index+1);
      if(missing.length)throw new Error(editor.name+' · '+rowLabel+': missing '+missing.join(', ')+'.');
@@ -1762,17 +1831,18 @@ async function renderProjectPlans(panel,openedProject,activeTab){
    const costs=budget.lines.filter(line=>approved.has(line.revision));
    const cost=Number(budget.totals?.final_budget??costs.reduce((sum,line)=>sum+Number(line.change_amount),0));
    const sales=invoices.reduce((sum,invoice)=>sum+Number(invoice.amount),0);
-   return {project,orders,costs,invoices,cost,sales,hasBudget:budget.lines.length>0};
+   const collections=invoices.filter(invoice=>invoice.expected_receipt_date).reduce((sum,invoice)=>sum+Number(invoice.amount),0);
+   return {project,orders,costs,invoices,cost,sales,collections,hasBudget:budget.lines.length>0};
   }));
   if(!content.isConnected)return;
   content.replaceChildren();
   const saved=plans.filter(plan=>plan.hasBudget||plan.invoices.length);
   if(!saved.length){show('p','No project budgets or planned invoices have been saved.',content);return;}
   const detail=show('div','',content);
-  reportTable(content,['Project',...projectProfitHeaders,'Actions'],saved.map(plan=>{
+  reportTable(content,['Project',...projectProfitHeaders,'Expected collections','Actions'],saved.map(plan=>{
    const open=document.createElement('button');open.type='button';open.textContent='Open';
    open.onclick=()=>showProjectPlan(detail,plan,panel);
-   return [plan.project.name,...projectProfitValues(plan.cost,plan.sales),open];
+   return [plan.project.name,...projectProfitValues(plan.cost,plan.sales),reportMoney.format(plan.collections),open];
   }));
   content.append(detail);
   const opened=saved.find(plan=>plan.project.id===openedProject);
@@ -1793,6 +1863,13 @@ function showProjectPlan(detail,plan,panel,active='budget'){
     panel.replaceChildren();
     await renderProjectPlans(panel,plan.project.id,'billing');
    },true);
+   const byDate=new Map();
+   for(const invoice of plan.invoices){
+    const date=invoice.expected_receipt_date;
+    if(date)byDate.set(date,(byDate.get(date)??0)+Number(invoice.amount));
+   }
+   show('h4','Expected collection schedule',body);
+   reportTable(body,['Collection date','Expected amount'],[...byDate].sort(([a],[b])=>a.localeCompare(b)).map(([date,amount])=>[date,reportMoney.format(amount)]));
    return;
   }
   if(plan.costs.length)reportTable(body,['Purchase order','Date','Department','Cost item','Version','Amount'],plan.costs.map(line=>[
@@ -1813,6 +1890,7 @@ function showProjectPlan(detail,plan,panel,active='budget'){
  }
  selectTab(active);
  const summary=show('div','',detail);summary.className='report-kpis';
+ show('p','Expected collections · '+reportMoney.format(plan.collections),summary);
  projectProfitValues(plan.cost,plan.sales).forEach((value,index)=>show('p',projectProfitHeaders[index]+' · '+value,summary));
 }
 
