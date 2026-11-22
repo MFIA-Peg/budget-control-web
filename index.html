@@ -51,6 +51,11 @@ main[data-view="project-plans"]>section[data-workspace]:not([data-workspace~="pr
 main[data-view="project-plans"] th,main[data-view="project-plans"] td{padding:9px;vertical-align:middle}
 main[data-view="project-plans"] td{font-variant-numeric:tabular-nums}
 main[data-view="project-plans"] [aria-pressed="false"]{background:#e7eff8;color:#19324b}
+.order-type-picker{border:1px solid #cad8e7;border-radius:8px;padding:10px 12px;margin:0 0 14px}
+.order-type-picker legend{font-weight:700}
+.order-type-picker label{display:inline-flex;align-items:center;gap:8px;border:1px solid #cad8e7;border-radius:6px;padding:8px 14px;margin:0 8px 8px 0;cursor:pointer}
+.order-type-picker label:has(:checked){background:#e4efff;border-color:#2563eb}
+.order-type-picker input{width:auto;margin:0}
 </style>
 <header><h1>Budget Controlling</h1><div class="finance-header"><span>Finance sign-in</span><button id="refresh-workspace" type="button" hidden>Refresh</button><button id="logout" type="button" hidden>Sign out</button></div></header>
 <nav id="work-nav" aria-label="Workspaces" hidden><button type="button" data-view="dashboard" hidden>Dashboard</button><button type="button" data-view="customers" hidden>Customers</button><button type="button" data-view="departments" hidden>Departments</button><button type="button" data-view="projects" hidden>Projects</button><button type="button" data-view="orders" hidden>Open customer purchase orders</button><button type="button" data-view="closed-orders" hidden>Closed purchase order report</button><button type="button" data-view="project-plans" hidden>Budget &amp; Planned Billing</button><button type="button" data-view="actual-invoices" hidden>Actual invoices</button><button type="button" data-view="planned-receipts" hidden>Expected collections</button><button type="button" data-view="actual-receipts" hidden>Actual collections</button><button type="button" data-view="cash" hidden>Cash flow</button><button type="button" data-view="costs" hidden>Actual costs</button><button type="button" data-view="members" hidden>System administration</button></nav>
@@ -318,7 +323,7 @@ async function openCatalog() {
   ['department','Departments','departments',[['name','Name']]],
   ['customer','Customers','customers',[['name','Name'],['phone','Contact number'],['approved_email','Approved email'],['relationship_started_on','Relationship start date']]],
   ['project','Projects','projects',[['name','Name'],['status','Status']]],
-  ['order','Open customer purchase orders','orders',[['order_number','Purchase order number'],['code','Purchase order code'],['project_id','Project','projects'],['customer_id','Customer','customers'],['department_id','Primary execution department','departments'],['start_date','Start date'],['end_date','End date'],['contract_value','Value excluding VAT (SAR)'],['billing_type','Billing type']]],
+  ['order','Open customer purchase orders','orders',[['order_number','Purchase order number'],['code','Purchase order code'],['project_id','Project','projects'],['customer_id','Customer','customers'],['department_id','Primary execution department','departments'],['start_date','Start date'],['end_date','End date'],['contract_value','Value excluding VAT (SAR)']]],
  ];
  for(const [kind,title,collection,fields] of groups){
   const area=show('article','',target);
@@ -328,6 +333,21 @@ async function openCatalog() {
   show('h3',title,dialog);
   const close=show('button','Close',dialog);close.type='button';close.onclick=()=>dialog.close();
   const form=show('form','',dialog);
+  const orderType=kind==='order'?show('fieldset','',form):null;
+  const orderTypeOptions=[];
+  if(orderType){
+   orderType.className='order-type-picker';
+   show('legend','Purchase order type',orderType);
+   for(const [value,label] of [['monthly_rental','Rental'],['milestones','Milestone']]){
+    const option=show('label','',orderType);
+    const radio=show('input','',option);
+    radio.type='radio';radio.name='billing_type';radio.value=value;radio.required=true;
+    show('span',label,option);
+    orderTypeOptions.push(radio);
+   }
+   const guidance=show('small','Rental generates monthly budget rows. Milestone uses manually entered rows.',orderType);
+   guidance.style.display='block';
+  }
   const customerDates=kind==='customer'?show('div','',dialog):null;
   const orderActions=show('div','',dialog);
   const attachments=show('div','',dialog);
@@ -335,12 +355,11 @@ async function openCatalog() {
   for(const [key,label,source] of fields){
    const wrapper=show('label',label,form);
    const dateField=key==='start_date'||key==='end_date';
-   const input=show(source||['status','billing_type'].includes(key)?'select':'input','',wrapper);
+   const input=show(source||key==='status'?'select':'input','',wrapper);
    if(dateField||key==='relationship_started_on')input.type='date';
    if(key==='phone')input.type='tel';
    if(key==='contract_value'){input.type='number';input.min='0';input.step='0.01';}
    if(key==='approved_email')input.type='email';
-   if(key==='billing_type')for(const [value,name] of [['milestones','Milestones'],['monthly_rental','Monthly rental']])show('option',name,input).value=value;
    if(key==='status')for(const [value,name] of Object.entries(projectStatuses))show('option',name,input).value=value;
    input.required=(!dateField||kind==='order')&&!['phone','approved_email','relationship_started_on'].includes(key);inputs[key]=input;
    if(source){
@@ -399,10 +418,12 @@ async function openCatalog() {
      departmentPicker();
     }
     if(editOrder){
+     for(const radio of orderTypeOptions)radio.checked=!!row&&radio.value===(row.billing_type??'milestones');
      selectOrderCustomer();
      const editable=[...Object.entries(inputs).filter(([key])=>!row||!['project_id','customer_id'].includes(key)).map(([,input])=>input),...form.querySelectorAll('details input,details button')];
      const setEditing=enabled=>{
       editable.forEach(input=>{input.disabled=!enabled;});
+      orderType.disabled=!enabled;
       save.hidden=!enabled;editOrder.hidden=enabled;
      };
      setEditing(!row);
@@ -445,6 +466,7 @@ async function openCatalog() {
    run(save,async()=>{
     const record=Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.value.trim()||null]));
     if(editing!=null)record.id=editing;
+    if(orderType)record.billing_type=orderTypeOptions.find(radio=>radio.checked).value;
     if(kind==='order_department')record.project_id=data.orders.find(row=>String(row.id)===record.order_id)?.project_id;
     if(departmentPicker)record.secondary_department_ids=[...selectedDepartments];
     try{await rpc('save_catalog',{p_kind:kind,p_data:record});}
