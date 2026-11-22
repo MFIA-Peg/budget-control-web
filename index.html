@@ -56,9 +56,13 @@ main[data-view="project-plans"] [aria-pressed="false"]{background:#e7eff8;color:
 .order-type-picker label{display:inline-flex;align-items:center;gap:8px;border:1px solid #cad8e7;border-radius:6px;padding:8px 14px;margin:0 8px 8px 0;cursor:pointer}
 .order-type-picker label:has(:checked){background:#e4efff;border-color:#2563eb}
 .order-type-picker input{width:auto;margin:0}
+main[data-view="project-actuals"]{max-width:1480px}
+main[data-view="project-actuals"]>section[data-workspace]:not([data-workspace~="project-actuals"]){display:none}
+main[data-view="project-actuals"] th,main[data-view="project-actuals"] td{padding:9px;vertical-align:middle}
+main[data-view="project-actuals"] [aria-pressed="false"]{background:#e7eff8;color:#19324b}
 </style>
 <header><h1>Budget Controlling</h1><div class="finance-header"><span>Finance sign-in</span><button id="refresh-workspace" type="button" hidden>Refresh</button><button id="logout" type="button" hidden>Sign out</button></div></header>
-<nav id="work-nav" aria-label="Workspaces" hidden><button type="button" data-view="dashboard" hidden>Dashboard</button><button type="button" data-view="customers" hidden>Customers</button><button type="button" data-view="departments" hidden>Departments</button><button type="button" data-view="projects" hidden>Projects</button><button type="button" data-view="orders" hidden>Open customer purchase orders</button><button type="button" data-view="closed-orders" hidden>Closed purchase order report</button><button type="button" data-view="project-plans" hidden>Budget &amp; Planned Billing</button><button type="button" data-view="actual-invoices" hidden>Actual invoices</button><button type="button" data-view="planned-receipts" hidden>Expected collections</button><button type="button" data-view="actual-receipts" hidden>Actual collections</button><button type="button" data-view="cash" hidden>Cash flow</button><button type="button" data-view="costs" hidden>Actual costs</button><button type="button" data-view="members" hidden>System administration</button></nav>
+<nav id="work-nav" aria-label="Workspaces" hidden><button type="button" data-view="dashboard" hidden>Dashboard</button><button type="button" data-view="customers" hidden>Customers</button><button type="button" data-view="departments" hidden>Departments</button><button type="button" data-view="projects" hidden>Projects</button><button type="button" data-view="orders" hidden>Open customer purchase orders</button><button type="button" data-view="closed-orders" hidden>Closed purchase order report</button><button type="button" data-view="project-plans" hidden>Budget &amp; Planned Billing</button><button type="button" data-view="project-actuals" hidden>Actual Costs, Billing &amp; Collections</button><button type="button" data-view="planned-receipts" hidden>Expected collections</button><button type="button" data-view="cash" hidden>Cash flow</button><button type="button" data-view="members" hidden>System administration</button></nav>
 <main id="workspace">
 <section><form id="login" aria-label="Finance sign-in">
 <label>Email<input name="email" type="email" required></label>
@@ -78,7 +82,7 @@ main[data-view="project-plans"] [aria-pressed="false"]{background:#e7eff8;color:
 <p id="dashboard-empty" hidden>No open projects for the portfolio view.</p><div id="dashboard-results"></div></section>
 <section id="catalog" data-workspace="customers departments projects orders" hidden><div id="catalog-fields"></div></section>
 <section id="closed-orders" data-workspace="closed-orders" hidden><h2>Closed customer purchase orders</h2><div id="closed-orders-content"></div></section>
-<section id="tab-report" data-workspace="project-plans budget costs planned-invoices actual-invoices planned-receipts actual-receipts customers departments projects orders closed-orders members" hidden></section>
+<section id="tab-report" data-workspace="project-actuals project-plans budget costs planned-invoices actual-invoices planned-receipts actual-receipts customers departments projects orders closed-orders members" hidden></section>
 <section id="order-analysis" data-workspace="order-analysis" hidden></section>
 <section id="budget" data-workspace="budget" hidden><h2>Project budget</h2>
 <label>Purchase order<select id="budget-project"></select></label><div id="budget-content"></div></section>
@@ -1835,10 +1839,103 @@ function projectProfitValues(cost,sales){
  );
 }
 const projectProfitHeaders=['Approved costs','Planned billing','Expected profit / loss','Profit margin','Mark-up'];
+
+function addPurchaseOrderBack(panel){
+ const back=show('button','Back to purchase orders',panel);
+ back.type='button';
+ back.onclick=()=>selectWorkspace('orders');
+}
+const actualProjectSections=[
+ ['cost','Actual costs','costs','Import actual costs'],
+ ['actual_invoice','Actual invoices','actual-invoices','Record actual invoice'],
+ ['actual_receipt','Actual collections','actual-receipts','Record actual collection']
+];
+let actualProjectPeriod;
+function renderProjectActuals(panel){
+ panel.hidden=!workspaceData;
+ if(panel.hidden)return;
+ addPurchaseOrderBack(panel);
+ show('h2','Actual Costs, Billing & Collections',panel);
+ const data=workspaceData;
+ const year=new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Riyadh'}).format(new Date());
+ actualProjectPeriod??={from:year+'-01-01',to:year+'-12-31'};
+ const filters=show('div','',panel);filters.className='report-filters';
+ for(const [key,label] of [['from','From'],['to','To']]){
+  const input=show('input','',show('label',label,filters));
+  input.type='date';input.value=actualProjectPeriod[key];
+  input.onchange=()=>{actualProjectPeriod[key]=input.value;load();};
+ }
+ const shortcuts=show('div','',panel);shortcuts.className='actions';
+ for(const [, ,view,label] of actualProjectSections){
+  const button=show('button',label,shortcuts);button.type='button';button.onclick=()=>selectWorkspace(view);
+ }
+ const output=show('div','',panel);
+ let request=0;
+ async function load(){
+  const current=++request;
+  const {from,to}=actualProjectPeriod;
+  output.replaceChildren();
+  if(!from||!to||from>to){show('p','Select a valid reporting period.',output);return;}
+  show('p','Loading…',output);
+  try{
+   const rows=await rpc('financial_rows',{p_from:from,p_to:to});
+   if(current!==request||!output.isConnected)return;
+   const projects=new Map();
+   for(const row of rows){
+    if(!actualProjectSections.some(([metric])=>row.metric===metric))continue;
+    const key=String(row.project_id);
+    if(!projects.has(key))projects.set(key,[]);
+    projects.get(key).push(row);
+   }
+   output.replaceChildren();
+   if(!projects.size){show('p','No actual transactions in this period.',output);return;}
+   const detail=document.createElement('div');
+   const tableRows=data.projects.filter(project=>projects.has(String(project.id))).map(project=>{
+    const movements=projects.get(String(project.id));
+    const totals=actualProjectSections.map(([key])=>movements.filter(row=>row.metric===key).reduce((sum,row)=>sum+Number(row.amount),0));
+    const open=document.createElement('button');open.type='button';open.textContent='Open';
+    open.onclick=()=>showProjectActualDetails(detail,project,movements,totals,data);
+    return [project.name,...totals.map(value=>reportMoney.format(value)),open];
+   });
+   reportTable(output,['Project',...actualProjectSections.map(([,label])=>label),'Actions'],tableRows);
+   output.append(detail);
+  }catch(error){
+   if(current===request&&output.isConnected)output.textContent=error.message;
+  }
+ }
+ load();
+}
+function showProjectActualDetails(detail,project,movements,totals,data){
+ detail.replaceChildren();
+ show('h3',project.name,detail);
+ const tabs=show('div','',detail);tabs.className='actions';
+ const body=show('div','',detail);
+ for(const [key,label] of actualProjectSections){
+  const tab=show('button',label,tabs);tab.type='button';
+  tab.onclick=()=>{
+   for(const button of tabs.children)button.setAttribute('aria-pressed',String(button===tab));
+   body.replaceChildren();
+   const rows=movements.filter(row=>row.metric===key);
+   if(!rows.length){show('p','No transactions in this period.',body);return;}
+   const cost=key==='cost';
+   const orders=new Map(data.orders.map(order=>[String(order.id),order.code]));
+   reportTable(body,['Date','Purchase order','Reference',...(cost?['Department','Cost category']:[]),'Details','Amount'],rows.map(row=>[
+    row.event_date,orders.get(String(row.order_id))??'—',row.reference,
+    ...(cost?[data.departments.find(item=>String(item.id)===String(row.department_id))?.name??'—',data.categories.find(item=>item.code===row.category)?.name??row.category]:[]),
+    row.detail||'—',reportMoney.format(row.amount)
+   ]));
+  };
+ }
+ tabs.firstElementChild.click();
+ const summary=show('div','',detail);summary.className='report-kpis';
+ actualProjectSections.forEach(([,label],index)=>show('p',label+' · '+reportMoney.format(totals[index]),summary));
+}
+
 async function renderProjectPlans(panel,openedProject,activeTab){
  panel.hidden=!workspaceData;
  if(panel.hidden)return;
  const data=workspaceData;
+ addPurchaseOrderBack(panel);
  show('h2','Budget and planned billing',panel);
  const content=show('div','Loading…',panel);
  const projects=data.projects.filter(project=>data.orders.some(order=>order.project_id===project.id));
@@ -1919,6 +2016,10 @@ function showProjectPlan(detail,plan,panel,active='budget'){
 function renderWorkspaceReport(){
  const view=byId('workspace').dataset.view, mode=reportModes[view], panel=byId('tab-report');
  panel.replaceChildren();
+ if(view==='project-actuals'){renderProjectActuals(panel);return;}
+ if(['costs','actual-invoices','actual-receipts'].includes(view)&&workspaceData){
+  const back=show('button','Back to actuals overview',panel);back.type='button';back.onclick=()=>selectWorkspace('project-actuals');
+ }
  if(view==='project-plans'){renderProjectPlans(panel);return;}
  if(!mode){renderCatalogOverview(panel,view);return;}
  panel.hidden=!workspaceData;
